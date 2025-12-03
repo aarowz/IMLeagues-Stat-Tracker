@@ -61,6 +61,22 @@ def ClassificationNav():
 
 
 
+#### ------------------------ Team Captain Role ------------------------
+def TeamCaptainHomeNav():
+    st.sidebar.page_link(
+        "pages/17_Team_Captain_Home.py", label="Team Captain Home", icon="🏠"
+    )
+
+def GameSchedulingNav():
+    st.sidebar.page_link("pages/18_Game_Scheduling.py", label="Game Scheduling", icon="📅")
+
+def TeamStatsDashboardNav():
+    st.sidebar.page_link("pages/19_Team_Stats_Dashboard.py", label="Team Stats Dashboard", icon="📊")
+
+def TeamPerformanceComparisonNav():
+    st.sidebar.page_link("pages/22_Team_Performance_Comparison.py", label="Team Performance Comparison", icon="📈")
+
+
 #### ------------------------ System Admin Role ------------------------
 def AdminPageNav():
     st.sidebar.page_link("pages/20_Admin_Home.py", label="System Admin", icon="🖥️")
@@ -105,6 +121,13 @@ def SideBarLinks(show_home=False):
             ApiTestNav()
             ClassificationNav()
             
+
+        # If the user is a team captain, show team captain pages
+        if st.session_state["role"] == "team_captain":
+            TeamCaptainHomeNav()
+            GameSchedulingNav()
+            TeamStatsDashboardNav()
+            TeamPerformanceComparisonNav()
 
         # If the user is an administrator, give them access to the administrator pages
         if st.session_state["role"] == "administrator":

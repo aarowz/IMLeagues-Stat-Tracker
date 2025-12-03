@@ -4,16 +4,29 @@ from modules.nav import SideBarLinks
 
 SideBarLinks()
 
-st.write("# About this App")
+st.write("# About IMLeagues Stat Tracker")
 
 st.markdown(
     """
-    This is a demo app for Data and Software in International Government and Politics Dialogue 2025 Project Course.  
+    **IMLeagues Stat Tracker** is a live stat tracking application for intramural sports participants 
+    who want a personalized, analytical, and user-friendly way to track their performance across their leagues.
 
-    The goal of this demo is to provide information on the tech stack 
-    being used as well as demo some of the features of the various platforms. 
-
-    Stay tuned for more information and features to come!
+    ## Features
+    
+    - **Real-time stat entry** during games
+    - **Performance analytics** and dashboards
+    - **Team management** for captains
+    - **League-wide comparisons** and rankings
+    - **Game scheduling** and management
+    
+    ## User Roles
+    
+    - **Team Captain**: Schedule games, manage team stats, send reminders, and analyze performance
+    - **Player**: View personal stats, upcoming games, and league rankings
+    - **Stat Keeper**: Enter stats in real-time during games
+    - **System Administrator**: Manage leagues, sports, and system-wide data
+    
+    Built with Streamlit, Flask, and MySQL.
     """
 )
 
