@@ -47,7 +47,7 @@ with tab1:
     st.subheader("Upcoming Games")
     
     if upcoming_games:
-        for game in upcoming_games:
+        for idx, game in enumerate(upcoming_games):
             with st.container():
                 col1, col2, col3 = st.columns([3, 2, 1])
                 
@@ -57,18 +57,18 @@ with tab1:
                     st.write(f"Location: {game['location']}")
                 
                 with col2:
-                    if st.button(f"Edit Game", key=f"edit_{game['game_id']}"):
+                    if st.button(f"Edit Game", key=f"edit_upcoming_{game['game_id']}_{idx}"):
                         st.session_state[f"editing_game_{game['game_id']}"] = True
                 
                 with col3:
-                    if st.button(f"View Details", key=f"view_{game['game_id']}"):
+                    if st.button(f"View Details", key=f"view_upcoming_{game['game_id']}_{idx}"):
                         st.session_state[f"viewing_game_{game['game_id']}"] = True
                 
                 if st.session_state.get(f"editing_game_{game['game_id']}", False):
-                    with st.form(f"edit_form_{game['game_id']}"):
-                        new_date = st.date_input("Date", value=datetime.strptime(game['date_played'], '%Y-%m-%d').date(), key=f"date_{game['game_id']}")
-                        new_time = st.time_input("Time", value=datetime.strptime(str(game['start_time']), '%H:%M:%S').time(), key=f"time_{game['game_id']}")
-                        new_location = st.text_input("Location", value=game['location'], key=f"loc_{game['game_id']}")
+                    with st.form(f"edit_form_upcoming_{game['game_id']}_{idx}"):
+                        new_date = st.date_input("Date", value=datetime.strptime(game['date_played'], '%Y-%m-%d').date(), key=f"date_upcoming_{game['game_id']}_{idx}")
+                        new_time = st.time_input("Time", value=datetime.strptime(str(game['start_time']), '%H:%M:%S').time(), key=f"time_upcoming_{game['game_id']}_{idx}")
+                        new_location = st.text_input("Location", value=game['location'], key=f"loc_upcoming_{game['game_id']}_{idx}")
                         
                         col_submit, col_cancel = st.columns(2)
                         with col_submit:
@@ -102,7 +102,7 @@ with tab2:
     st.subheader("Past Games")
     
     if past_games:
-        for game in past_games:
+        for idx, game in enumerate(past_games):
             with st.container():
                 col1, col2 = st.columns([4, 1])
                 
@@ -111,7 +111,7 @@ with tab2:
                     st.write(f"Date: {game['date_played']} | Location: {game['location']}")
                 
                 with col2:
-                    if st.button(f"View Stats", key=f"stats_{game['game_id']}"):
+                    if st.button(f"View Stats", key=f"stats_past_{game['game_id']}_{idx}"):
                         st.session_state[f"viewing_stats_{game['game_id']}"] = True
                 
                 if st.session_state.get(f"viewing_stats_{game['game_id']}", False):
