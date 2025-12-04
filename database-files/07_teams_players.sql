@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into Teams_Players (player_id, team_id, role ) values (801, 429, 'Player');
 insert into Teams_Players (player_id, team_id, role ) values (419, 625, 'Captain');
 insert into Teams_Players (player_id, team_id, role ) values (829, 656, 'Player');

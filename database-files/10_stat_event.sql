@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (218, 91, '4 assists', '2026-02-21 20:37:10');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (150, 301, '5 steals', '2026-09-16 10:40:31');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (333, 638, 'missed a free throw', '2026-02-20 13:30:00');

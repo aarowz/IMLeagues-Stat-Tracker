@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into Games (league_played, date_played, start_time, location, home_score, away_score) values (10, '1/1/2026', '4:44 AM', 'Marino Center Court 1', 124, 35);
 insert into Games (league_played, date_played, start_time, location, home_score, away_score) values (4, '5/15/2026', '4:49 AM', 'Marino Center Court 3', 62, 7);
 insert into Games (league_played, date_played, start_time, location, home_score, away_score) values (18, '5/5/2026', '10:16 AM', 'Marino Center Court 1', 136, 49);

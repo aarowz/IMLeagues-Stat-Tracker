@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Volleyball League', 2, '1/2/2025', '11/15/2025', 'Fall', 2030);
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Volleyball League', 2, '8/16/2025', '10/27/2025', 'Spring', 2027);
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Summer Soccer League', 2, '10/19/2025', '1/31/2025', 'Fall', 2030);

@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into player_games (player_id, game_id) values (655, 47);
 insert into player_games (player_id, game_id) values (313, 939);
 insert into player_games (player_id, game_id) values (276, 787);

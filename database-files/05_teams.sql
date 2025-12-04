@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into Teams (name, league_played, wins, losses) values ('Swift Wolves', 30, 4, 7);
 insert into Teams (name, league_played, wins, losses) values ('Thunderbolts', 29, 7, 2);
 insert into Teams (name, league_played, wins, losses) values ('Raging Rhinos', 19, 3, 1);

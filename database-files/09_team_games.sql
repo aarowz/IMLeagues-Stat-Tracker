@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into team_games (team_id, game_id, is_home_team) values (953, 116, true);
 insert into team_games (team_id, game_id, is_home_team) values (446, 850, true);
 insert into team_games (team_id, game_id, is_home_team) values (17, 748, true);

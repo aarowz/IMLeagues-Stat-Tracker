@@ -1,3 +1,4 @@
+USE im_league_tracker; 
 insert into Players (first_name, last_name, email) values ('Emile', 'Ilymanov', 'eilymanov0@yahoo.com');
 insert into Players (first_name, last_name, email) values ('Audi', 'Blown', 'ablown1@delicious.com');
 insert into Players (first_name, last_name, email) values ('Wolfy', 'Kimmins', 'wkimmins2@blinklist.com');
