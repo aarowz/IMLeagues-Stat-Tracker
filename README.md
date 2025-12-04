@@ -1,6 +1,6 @@
-# Fall 2025 CS 3200 Project Template
+# IMLeagues Stat Tracker
 
-This is a template repo for Dr. Fontenot's Fall 2025 CS 3200 Course Project. 
+This is the IMLeagues Stat Tracker project repository for tracking intramural sports statistics. 
 
 It includes most of the infrastructure setup (containers), sample databases, and example UI pages. Explore it fully and ask questions!
 

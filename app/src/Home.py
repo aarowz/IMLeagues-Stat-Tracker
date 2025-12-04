@@ -1,6 +1,6 @@
 ##################################################
 # This is the main/entry-point file for the 
-# sample application for your project
+# IMLeagues Stat Tracker application
 ##################################################
 
 # Set up basic logging infrastructure
@@ -34,7 +34,7 @@ SideBarLinks(show_home=True)
 
 # set the title of the page and provide a simple prompt. 
 logger.info("Loading the Home page of the app")
-st.title('CS 3200 Project Template')
+st.title('IMLeagues Stat Tracker')
 st.write('\n\n')
 # st.write('### Overview:')
 # st.write('\n')
@@ -66,6 +66,15 @@ if st.button('Act as Mohammad, an USAID worker',
     st.session_state['role'] = 'usaid_worker'
     st.session_state['first_name'] = 'Mohammad'
     st.switch_page('pages/10_USAID_Worker_Home.py')
+
+if st.button('Act as Miles, a Team Captain', 
+            type = 'primary', 
+            use_container_width=True):
+    st.session_state['authenticated'] = True
+    st.session_state['role'] = 'team_captain'
+    st.session_state['first_name'] = 'Miles'
+    logger.info("Logging in as Team Captain Persona")
+    st.switch_page('pages/17_Team_Captain_Home.py')
 
 if st.button('Act as System Administrator', 
             type = 'primary', 
