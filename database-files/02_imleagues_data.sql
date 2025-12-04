@@ -10,14 +10,14 @@ INSERT INTO Sports (name) VALUES
 ('Soccer'),
 ('Volleyball');
 
-/* -- Insert Leagues
+-- Insert Leagues
 INSERT INTO Leagues (name, sport_played, league_start, league_end, semester, year) VALUES
 ('Fall Basketball League', 1, '2025-09-01', '2025-12-15',
  'Fall', 2025),
 ('Spring Soccer League', 2, '2026-01-15', '2026-05-15',
  'Spring', 2026),
 ('Fall Volleyball League', 3, '2025-09-01', '2025-12-15',
- 'Fall', 2025); */
+ 'Fall', 2025);
 
 -- Insert Rules
 INSERT INTO Rules (sports_id, team_size, league_size, season_length, game_length, description) VALUES

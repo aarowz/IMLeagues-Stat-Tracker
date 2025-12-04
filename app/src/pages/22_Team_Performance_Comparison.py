@@ -148,6 +148,15 @@ if splits:
             st.write("**Home Games**")
             home_wins = home_data.get('wins', 0)
             home_games = home_data.get('total_games', 0)
+            # Convert to int if they're strings
+            try:
+                home_wins = int(home_wins) if home_wins else 0
+            except (ValueError, TypeError):
+                home_wins = 0
+            try:
+                home_games = int(home_games) if home_games else 0
+            except (ValueError, TypeError):
+                home_games = 0
             if home_games > 0:
                 home_win_pct = (home_wins / home_games * 100)
             else:
@@ -167,6 +176,15 @@ if splits:
             st.write("**Away Games**")
             away_wins = away_data.get('wins', 0)
             away_games = away_data.get('total_games', 0)
+            # Convert to int if they're strings
+            try:
+                away_wins = int(away_wins) if away_wins else 0
+            except (ValueError, TypeError):
+                away_wins = 0
+            try:
+                away_games = int(away_games) if away_games else 0
+            except (ValueError, TypeError):
+                away_games = 0
             if away_games > 0:
                 away_win_pct = (away_wins / away_games * 100)
             else:
