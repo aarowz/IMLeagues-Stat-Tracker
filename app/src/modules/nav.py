@@ -48,10 +48,9 @@ def TeamPerformanceComparisonNav():
 
 
 #### ------------------------ System Admin Role ------------------------
-def AdminPageNav():
-    st.sidebar.page_link("pages/20_Admin_Home.py", label="System Admin", icon="🖥️")
+def SystemAdminHomeNav():
     st.sidebar.page_link(
-        "pages/21_ML_Model_Mgmt.py", label="ML Model Management", icon="🏢"
+        "pages/20_System_Admin_Home.py", label="System Admin Home", icon="🖥️"
     )
 
 
@@ -93,7 +92,7 @@ def SideBarLinks(show_home=False):
 
         # If the user is an administrator, give them access to the administrator pages
         if st.session_state["role"] == "administrator":
-            AdminPageNav()
+            SystemAdminHomeNav()
 
     # Always show the About page at the bottom of the list of links
     AboutPageNav()
