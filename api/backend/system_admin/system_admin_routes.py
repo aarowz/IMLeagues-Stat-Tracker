@@ -283,7 +283,8 @@ def get_all_leagues():
         
         sport_filter = request.args.get("sport_id")
         semester_filter = request.args.get("semester")
-        year_filter = request.args.get("year")
+        min_year_filter = request.args.get("min_year")
+        max_year_filter = request.args.get("max_year")
         
         query = """
         SELECT l.league_id, l.name, l.sport_played, l.max_teams,
@@ -304,9 +305,13 @@ def get_all_leagues():
             query += " AND l.semester = %s"
             params.append(semester_filter)
         
-        if year_filter:
-            query += " AND l.year = %s"
-            params.append(year_filter)
+        if min_year_filter:
+            query += " AND l.year >= %s"
+            params.append(min_year_filter)
+        
+        if max_year_filter:
+            query += " AND l.year <= %s"
+            params.append(max_year_filter)
         
         query += " ORDER BY l.year ASC, l.semester, l.name"
         
@@ -691,6 +696,7 @@ def get_all_teams():
         cursor = db.get_db().cursor()
         
         league_filter = request.args.get("league_id")
+        name_search = request.args.get("name_search")
         
         query = """
         SELECT t.team_id, t.name, t.wins, t.losses, t.founded_date,
@@ -706,6 +712,10 @@ def get_all_teams():
         if league_filter:
             query += " AND t.league_played = %s"
             params.append(league_filter)
+        
+        if name_search:
+            query += " AND LOWER(t.name) LIKE LOWER(%s)"
+            params.append(f"%{name_search}%")
         
         query += " ORDER BY t.name"
         
@@ -1650,7 +1660,8 @@ def get_all_games():
         cursor = db.get_db().cursor()
         
         league_filter = request.args.get("league_id")
-        date_filter = request.args.get("date")
+        min_date_filter = request.args.get("min_date")
+        max_date_filter = request.args.get("max_date")
         team_filter = request.args.get("team_id")
         
         query = """
@@ -1674,9 +1685,13 @@ def get_all_games():
             query += " AND g.league_played = %s"
             params.append(league_filter)
         
-        if date_filter:
-            query += " AND g.date_played = %s"
-            params.append(date_filter)
+        if min_date_filter:
+            query += " AND g.date_played >= %s"
+            params.append(min_date_filter)
+        
+        if max_date_filter:
+            query += " AND g.date_played <= %s"
+            params.append(max_date_filter)
         
         if team_filter:
             query += " AND (tg1.team_id = %s OR tg2.team_id = %s)"

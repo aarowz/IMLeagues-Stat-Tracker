@@ -104,43 +104,42 @@ with tab2:
             st.rerun()
     
     try:
-        # Fetch all leagues
-        leagues_response = requests.get(f"{API_BASE}/leagues")
+        # Fetch sports for filtering dropdown
+        sports_response = requests.get(f"{API_BASE}/sports")
+        sports = sports_response.json() if sports_response.status_code == 200 else []
+        sport_map = {s['sport_id']: s['name'] for s in sports}
+        
+        # Filters UI
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            sorted_sports = sorted(sports, key=lambda x: x.get('name', ''))
+            sport_display_to_id = {f"{s['name']} (ID: {s['sport_id']})": s['sport_id'] for s in sorted_sports}
+            sport_filter_options = ["All"] + list(sport_display_to_id.keys())
+            sport_filter = st.selectbox("Filter by Sport", options=sport_filter_options, key="league_sport_filter")
+        with col2:
+            semester_filter = st.selectbox("Filter by Semester", options=["All", "Fall", "Spring", "Summer", "Winter"], key="league_semester_filter")
+        with col3:
+            min_year_filter = st.number_input("Min Year", min_value=2020, max_value=2030, value=2020, key="league_min_year_filter")
+        with col4:
+            max_year_filter = st.number_input("Max Year", min_value=2020, max_value=2030, value=2030, key="league_max_year_filter")
+        
+        # Build API request with filter parameters
+        league_params = {}
+        if sport_filter != "All":
+            league_params["sport_id"] = sport_display_to_id.get(sport_filter)
+        if semester_filter != "All":
+            league_params["semester"] = semester_filter
+        league_params["min_year"] = min_year_filter
+        league_params["max_year"] = max_year_filter
+        
+        # Fetch leagues with filters applied via SQL
+        leagues_response = requests.get(f"{API_BASE}/leagues", params=league_params)
         if leagues_response.status_code == 200:
             leagues = leagues_response.json()
             
-            # Fetch sports for filtering
-            sports_response = requests.get(f"{API_BASE}/sports")
-            sports = sports_response.json() if sports_response.status_code == 200 else []
-            sport_map = {s['sport_id']: s['name'] for s in sports}
-            
             if leagues:
-                # Filters
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    # Sort sports by name and include ID in display
-                    sorted_sports = sorted(sports, key=lambda x: x.get('name', ''))
-                    sport_display_to_id = {f"{s['name']} (ID: {s['sport_id']})": s['sport_id'] for s in sorted_sports}
-                    sport_filter_options = ["All"] + list(sport_display_to_id.keys())
-                    sport_filter = st.selectbox("Filter by Sport", options=sport_filter_options, key="league_sport_filter")
-                with col2:
-                    semester_filter = st.selectbox("Filter by Semester", options=["All", "Fall", "Spring", "Summer", "Winter"], key="league_semester_filter")
-                with col3:
-                    min_year_filter = st.number_input("Min Year", min_value=2020, max_value=2030, value=2020, key="league_min_year_filter")
-                with col4:
-                    max_year_filter = st.number_input("Max Year", min_value=2020, max_value=2030, value=2030, key="league_max_year_filter")
-                
-                # Apply filters
-                filtered_leagues = leagues
-                if sport_filter != "All":
-                    sport_id = sport_display_to_id.get(sport_filter)
-                    if sport_id:
-                        filtered_leagues = [l for l in filtered_leagues if l.get('sport_played') == sport_id]
-                if semester_filter != "All":
-                    filtered_leagues = [l for l in filtered_leagues if l.get('semester') == semester_filter]
-                filtered_leagues = [l for l in filtered_leagues if l.get('year') and min_year_filter <= l.get('year') <= max_year_filter]
-                
                 # Display leagues
+                filtered_leagues = leagues  # Already filtered by backend
                 if filtered_leagues:
                     # Add sport name to display
                     display_leagues = []
@@ -257,38 +256,36 @@ with tab3:
             st.rerun()
     
     try:
-        # Fetch all teams
-        teams_response = requests.get(f"{API_BASE}/teams")
+        # Fetch leagues for filtering dropdown
+        leagues_response = requests.get(f"{API_BASE}/leagues")
+        leagues = leagues_response.json() if leagues_response.status_code == 200 else []
+        league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
+        
+        # Filters UI
+        col1, col2 = st.columns(2)
+        with col1:
+            sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
+            league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+            league_filter_options = ["All"] + list(league_display_to_id.keys())
+            league_filter = st.selectbox("Filter by League", options=league_filter_options, key="team_league_filter")
+        with col2:
+            search_filter = st.text_input("Search by Team Name", key="team_search_filter")
+        
+        # Build API request with filter parameters
+        team_params = {}
+        if league_filter != "All":
+            team_params["league_id"] = league_display_to_id.get(league_filter)
+        if search_filter:
+            team_params["name_search"] = search_filter
+        
+        # Fetch teams with filters applied via SQL
+        teams_response = requests.get(f"{API_BASE}/teams", params=team_params)
         if teams_response.status_code == 200:
             teams = teams_response.json()
             
-            # Fetch leagues for filtering
-            leagues_response = requests.get(f"{API_BASE}/leagues")
-            leagues = leagues_response.json() if leagues_response.status_code == 200 else []
-            league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
-            
             if teams:
-                # Filters
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Sort leagues by start date (most recent first) and include year in display
-                    sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
-                    league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
-                    league_filter_options = ["All"] + list(league_display_to_id.keys())
-                    league_filter = st.selectbox("Filter by League", options=league_filter_options, key="team_league_filter")
-                with col2:
-                    search_filter = st.text_input("Search by Team Name", key="team_search_filter")
-                
-                # Apply filters
-                filtered_teams = teams
-                if league_filter != "All":
-                    league_id = league_display_to_id.get(league_filter)
-                    if league_id:
-                        filtered_teams = [t for t in filtered_teams if t.get('league_played') == league_id]
-                if search_filter:
-                    filtered_teams = [t for t in filtered_teams if search_filter.lower() in t.get('name', '').lower()]
-                
                 # Display teams
+                filtered_teams = teams  # Already filtered by backend
                 if filtered_teams:
                     # Add league name to display
                     display_teams = []
@@ -421,11 +418,29 @@ with tab4:
                     # Edit player section
                     st.divider()
                     st.subheader("Edit Player")
-                    player_options = {f"{p['first_name']} {p['last_name']} (ID: {p['player_id']})": p['player_id'] for p in players}
-                    selected_player_display = st.selectbox("Select Player to Edit", options=list(player_options.keys()))
-                    selected_player_id = player_options[selected_player_display]
+                    edit_search = st.text_input("Search Player to Edit (by name, email, or ID)", key="edit_player_search")
                     
-                    selected_player = next((p for p in players if p['player_id'] == selected_player_id), None)
+                    # Filter players based on search
+                    edit_filtered_players = players
+                    if edit_search:
+                        edit_filtered_players = [p for p in players if 
+                                                edit_search.lower() in p.get('first_name', '').lower() or
+                                                edit_search.lower() in p.get('last_name', '').lower() or
+                                                edit_search.lower() in p.get('email', '').lower() or
+                                                edit_search == str(p.get('player_id', ''))]
+                    
+                    if edit_filtered_players and edit_search:
+                        # Show matching players as selectable options
+                        player_options = {f"{p['first_name']} {p['last_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in edit_filtered_players}
+                        selected_player_display = st.selectbox("Select from results", options=list(player_options.keys()), key="edit_player_select")
+                        selected_player_id = player_options[selected_player_display]
+                        selected_player = next((p for p in players if p['player_id'] == selected_player_id), None)
+                    elif not edit_search:
+                        st.info("Enter a search term above to find a player to edit.")
+                        selected_player = None
+                    else:
+                        st.warning("No players found matching your search.")
+                        selected_player = None
                     
                     if selected_player:
                         with st.form(f"edit_player_{selected_player_id}"):
@@ -504,39 +519,40 @@ with tab5:
             st.rerun()
     
     try:
-        # Fetch all games
-        games_response = requests.get(f"{API_BASE}/games")
+        # Fetch leagues for filtering dropdown
+        leagues_response = requests.get(f"{API_BASE}/leagues")
+        leagues = leagues_response.json() if leagues_response.status_code == 200 else []
+        league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
+        
+        # Filters UI
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
+            league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+            league_filter_options = ["All"] + list(league_display_to_id.keys())
+            league_filter = st.selectbox("Filter by League", options=league_filter_options, key="game_league_filter")
+        with col2:
+            min_date_filter = st.date_input("Min Date", value=None, key="game_min_date_filter")
+        with col3:
+            max_date_filter = st.date_input("Max Date", value=None, key="game_max_date_filter")
+        
+        # Build API request with filter parameters
+        game_params = {}
+        if league_filter != "All":
+            game_params["league_id"] = league_display_to_id.get(league_filter)
+        if min_date_filter:
+            game_params["min_date"] = min_date_filter.isoformat()
+        if max_date_filter:
+            game_params["max_date"] = max_date_filter.isoformat()
+        
+        # Fetch games with filters applied via SQL
+        games_response = requests.get(f"{API_BASE}/games", params=game_params)
         if games_response.status_code == 200:
             games = games_response.json()
             
-            # Fetch leagues for filtering
-            leagues_response = requests.get(f"{API_BASE}/leagues")
-            leagues = leagues_response.json() if leagues_response.status_code == 200 else []
-            league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
-            
             if games:
-                # Filters
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Sort leagues by start date (most recent first) and include year and ID in display
-                    sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
-                    league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
-                    league_filter_options = ["All"] + list(league_display_to_id.keys())
-                    league_filter = st.selectbox("Filter by League", options=league_filter_options, key="game_league_filter")
-                with col2:
-                    date_filter = st.date_input("Filter by Date", value=None, key="game_date_filter")
-                
-                # Apply filters
-                filtered_games = games
-                if league_filter != "All":
-                    league_id = league_display_to_id.get(league_filter)
-                    if league_id:
-                        filtered_games = [g for g in filtered_games if g.get('league_played') == league_id]
-                if date_filter:
-                    date_str = date_filter.isoformat()
-                    filtered_games = [g for g in filtered_games if g.get('date_played') == date_str]
-                
                 # Display games
+                filtered_games = games  # Already filtered by backend
                 if filtered_games:
                     # Add league name to display
                     display_games = []
