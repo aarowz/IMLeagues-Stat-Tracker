@@ -55,8 +55,16 @@ with tab1:
             st.rerun()
     
     try:
-        # Fetch all players
-        players_response = requests.get(f"{API_BASE}/players")
+        # Search filter (applied at API/database level)
+        search_filter = st.text_input("Search Players", key="award_player_search")
+        
+        # Build API request with search parameter
+        player_params = {}
+        if search_filter:
+            player_params["search"] = search_filter
+        
+        # Fetch players with search filter applied via SQL
+        players_response = requests.get(f"{API_BASE}/players", params=player_params)
         if players_response.status_code == 200:
             players = players_response.json()
             
@@ -64,14 +72,8 @@ with tab1:
                 # Sort players by last_name, first_name (like Data Management page)
                 sorted_players = sorted(players, key=lambda x: (x.get('last_name', '').lower(), x.get('first_name', '').lower()))
                 
-                # Search filter
-                search_filter = st.text_input("Search Players", key="award_player_search")
+                # Players already filtered by backend
                 filtered_players = sorted_players
-                if search_filter:
-                    filtered_players = [p for p in sorted_players if 
-                                       search_filter.lower() in p.get('first_name', '').lower() or
-                                       search_filter.lower() in p.get('last_name', '').lower() or
-                                       search_filter.lower() in p.get('email', '').lower()]
                 
                 # Select player
                 player_options = {f"{p['last_name']}, {p['first_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in filtered_players}

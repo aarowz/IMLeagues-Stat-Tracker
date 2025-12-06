@@ -1159,13 +1159,29 @@ def get_all_players():
     try:
         cursor = db.get_db().cursor()
         
+        # Get search parameter from query string
+        search = request.args.get("search", "").strip()
+        
         query = """
         SELECT player_id, phone_number, first_name, last_name, email
         FROM Players
-        ORDER BY last_name, first_name
         """
         
-        cursor.execute(query)
+        params = []
+        
+        # Add WHERE clause if search parameter is provided
+        if search:
+            query += """
+            WHERE LOWER(first_name) LIKE %s 
+               OR LOWER(last_name) LIKE %s 
+               OR LOWER(email) LIKE %s
+            """
+            search_pattern = f"%{search.lower()}%"
+            params = [search_pattern, search_pattern, search_pattern]
+        
+        query += " ORDER BY last_name, first_name"
+        
+        cursor.execute(query, params if params else None)
         players = cursor.fetchall()
         cursor.close()
         

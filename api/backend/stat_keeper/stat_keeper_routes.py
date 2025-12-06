@@ -73,13 +73,13 @@ def get_stat_keeper_games(keeper_id):
         
         params = [keeper_id]
         
-        # Add date filtering based on upcoming_only parameter
+        # Add date filtering and ordering based on upcoming_only parameter
         if upcoming_only:
             query += " AND g.date_played >= CURDATE()"
+            query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
         else:
             query += " AND g.date_played < CURDATE()"
-        
-        query += " ORDER BY g.date_played DESC, g.start_time DESC"
+            query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
         
         cursor.execute(query, params)
         games = cursor.fetchall()
