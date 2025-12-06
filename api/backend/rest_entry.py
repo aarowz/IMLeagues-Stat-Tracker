@@ -9,6 +9,9 @@ from backend.db_connection import db
 # from backend.simple.simple_routes import simple_routes
 # from backend.ngos.ngo_routes import ngos
 from backend.team_captain.team_captain_routes import team_captain
+from backend.player.player_routes import player
+from backend.stat_keeper.stat_keeper_routes import stat_keeper
+from backend.system_admin.system_admin_routes import system_admin
 
 def create_app():
     app = Flask(__name__)
@@ -54,6 +57,9 @@ def create_app():
     # app.register_blueprint(simple_routes)
     # app.register_blueprint(ngos, url_prefix="/ngo")
     app.register_blueprint(team_captain, url_prefix="/team-captain")
+    app.register_blueprint(player, url_prefix="/player")
+    app.register_blueprint(stat_keeper, url_prefix="/stat-keeper")
+    app.register_blueprint(system_admin, url_prefix="/system-admin")
 
     # Don't forget to return the app object
     return app
