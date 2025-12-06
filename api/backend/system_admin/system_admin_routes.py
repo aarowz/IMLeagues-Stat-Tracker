@@ -292,6 +292,7 @@ def get_all_leagues():
         FROM Leagues l
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE 1=1
+        ORDER BY l.year ASC, l.semester, l.name
         """
         
         params = []
@@ -308,7 +309,7 @@ def get_all_leagues():
             query += " AND l.year = %s"
             params.append(year_filter)
         
-        query += " ORDER BY l.year DESC, l.semester, l.name"
+        #query += " ORDER BY l.year ASC, l.semester, l.name"
         
         cursor.execute(query, params)
         leagues = cursor.fetchall()
@@ -473,7 +474,7 @@ def get_league_teams(league_id):
         LEFT JOIN Teams_Players tp ON t.team_id = tp.team_id
         WHERE t.league_played = %s
         GROUP BY t.team_id, t.name, t.wins, t.losses
-        ORDER BY t.wins DESC, t.losses ASC, t.name
+        ORDER BY t.name
         """
         
         cursor.execute(query, (league_id,))
@@ -1308,13 +1309,13 @@ def get_player_teams(player_id):
         
         query = """
         SELECT t.team_id, t.name AS team_name, t.wins, t.losses,
-               tp.role, l.name AS league_name, l.league_id, s.name AS sport_name
+               tp.role, l.name AS league_name, l.league_id, l.year AS league_year, s.name AS sport_name
         FROM Teams_Players tp
         JOIN Teams t ON tp.team_id = t.team_id
         JOIN Leagues l ON t.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE tp.player_id = %s
-        ORDER BY l.name, t.name
+        ORDER BY l.year ASC, t.name
         """
         
         cursor.execute(query, (player_id,))
