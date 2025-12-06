@@ -1683,6 +1683,63 @@ def get_all_player_awards():
         return jsonify({"error": str(e)}), 500
 
 
+@system_admin.route("/champions", methods=["GET"])
+def get_all_champions():
+    """Get all champions with team and league info - efficient single query"""
+    try:
+        cursor = db.get_db().cursor()
+        
+        query = """
+        SELECT c.champion_id, c.winner, c.league_id, c.year,
+               t.name AS winner_team_name,
+               l.name AS league_name, l.semester, l.year AS league_year,
+               s.name AS sport_name, s.sport_id
+        FROM Champions c
+        JOIN Teams t ON c.winner = t.team_id
+        JOIN Leagues l ON c.league_id = l.league_id
+        JOIN Sports s ON l.sport_played = s.sport_id
+        ORDER BY c.year DESC, l.name, t.name
+        """
+        
+        cursor.execute(query)
+        champions = cursor.fetchall()
+        cursor.close()
+        
+        champions = convert_datetime_for_json(champions)
+        
+        return jsonify(champions), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@system_admin.route("/leagues/without-champions", methods=["GET"])
+def get_leagues_without_champions():
+    """Get all leagues that don't have a champion assigned yet"""
+    try:
+        cursor = db.get_db().cursor()
+        
+        query = """
+        SELECT l.league_id, l.name, l.sport_played, l.max_teams,
+               l.league_start, l.league_end, l.semester, l.year,
+               s.name AS sport_name
+        FROM Leagues l
+        JOIN Sports s ON l.sport_played = s.sport_id
+        LEFT JOIN Champions c ON l.league_id = c.league_id
+        WHERE c.champion_id IS NULL
+        ORDER BY l.year DESC, l.semester, l.name
+        """
+        
+        cursor.execute(query)
+        leagues = cursor.fetchall()
+        cursor.close()
+        
+        leagues = convert_datetime_for_json(leagues)
+        
+        return jsonify(leagues), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @system_admin.route("/games", methods=["GET"])
 def get_all_games():
     try:

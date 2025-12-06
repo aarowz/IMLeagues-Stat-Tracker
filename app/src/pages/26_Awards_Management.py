@@ -61,17 +61,20 @@ with tab1:
             players = players_response.json()
             
             if players:
+                # Sort players by last_name, first_name (like Data Management page)
+                sorted_players = sorted(players, key=lambda x: (x.get('last_name', '').lower(), x.get('first_name', '').lower()))
+                
                 # Search filter
                 search_filter = st.text_input("Search Players", key="award_player_search")
-                filtered_players = players
+                filtered_players = sorted_players
                 if search_filter:
-                    filtered_players = [p for p in players if 
+                    filtered_players = [p for p in sorted_players if 
                                        search_filter.lower() in p.get('first_name', '').lower() or
                                        search_filter.lower() in p.get('last_name', '').lower() or
                                        search_filter.lower() in p.get('email', '').lower()]
                 
                 # Select player
-                player_options = {f"{p['first_name']} {p['last_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in filtered_players}
+                player_options = {f"{p['last_name']}, {p['first_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in filtered_players}
                 selected_player_display = st.selectbox("Select Player", options=list(player_options.keys()))
                 selected_player_id = player_options[selected_player_display]
                 
@@ -85,8 +88,10 @@ with tab1:
                 if existing_awards:
                     st.write("**Existing Awards:**")
                     awards_df = pd.DataFrame(existing_awards)
-                    st.dataframe(awards_df[['award_type', 'year', 'description']] if 'description' in awards_df.columns else awards_df[['award_type', 'year']], 
-                                use_container_width=True, hide_index=True)
+                    display_cols = ['award_type', 'year']
+                    if 'description' in awards_df.columns:
+                        display_cols.append('description')
+                    st.dataframe(awards_df[display_cols], use_container_width=True, hide_index=True)
                     
                     # Delete award option
                     st.divider()
@@ -141,44 +146,25 @@ with tab2:
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.write("Record league champions at the end of each season.")
+        st.write("Record champions for leagues that haven't been assigned one yet.")
     with col2:
         if st.button("🔄 Refresh", key="refresh_champions"):
             st.rerun()
     
     try:
-        # Fetch all leagues
-        leagues_response = requests.get(f"{API_BASE}/leagues")
+        # Fetch only leagues without champions (ongoing leagues)
+        leagues_response = requests.get(f"{API_BASE}/leagues/without-champions")
         if leagues_response.status_code == 200:
             leagues = leagues_response.json()
             
-            # Fetch sports for display
-            sports_response = requests.get(f"{API_BASE}/sports")
-            sports = sports_response.json() if sports_response.status_code == 200 else []
-            sport_map = {s['sport_id']: s['name'] for s in sports}
-            
             if leagues:
-                # Select league
-                league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({sport_map.get(l.get('sport_played'), 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in leagues}
-                selected_league_display = st.selectbox("Select League", options=list(league_options.keys()))
+                # Sort leagues by year (desc), then name
+                sorted_leagues = sorted(leagues, key=lambda x: (-x.get('year', 0), x.get('name', '').lower()))
+                
+                # Select league (only shows leagues without champions)
+                league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({l.get('sport_name', 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+                selected_league_display = st.selectbox("Select League (without champion)", options=list(league_options.keys()))
                 selected_league_id = league_options[selected_league_display]
-                
-                # Get league's existing champions
-                existing_champions_response = requests.get(f"{API_BASE}/leagues/{selected_league_id}/champions")
-                existing_champions = []
-                if existing_champions_response.status_code == 200:
-                    existing_champions = existing_champions_response.json()
-                
-                # Display existing champions
-                if existing_champions:
-                    st.write("**Previous Champions:**")
-                    champions_df = pd.DataFrame(existing_champions)
-                    display_cols = ['year', 'winner_team_name']
-                    if 'description' in champions_df.columns:
-                        display_cols.append('description')
-                    st.dataframe(champions_df[display_cols], use_container_width=True, hide_index=True)
-                else:
-                    st.info("This league has no recorded champions yet.")
                 
                 # Get teams in this league
                 teams_response = requests.get(f"{API_BASE}/leagues/{selected_league_id}/teams")
@@ -187,11 +173,14 @@ with tab2:
                     teams = teams_response.json()
                 
                 if teams:
-                    # Assign new champion
+                    # Sort teams by name
+                    sorted_teams = sorted(teams, key=lambda x: x.get('team_name', '').lower())
+                    
+                    # Assign champion form
                     st.divider()
-                    st.subheader("Record New Champion")
+                    st.subheader("Record Champion")
                     with st.form("assign_champion"):
-                        team_options = {f"{t.get('team_name', 'Unknown Team')} (Wins: {t.get('wins', 0)}, Losses: {t.get('losses', 0)}) (ID: {t['team_id']})": t['team_id'] for t in teams}
+                        team_options = {f"{t.get('team_name', 'Unknown Team')} (Wins: {t.get('wins', 0)}, Losses: {t.get('losses', 0)}) (ID: {t['team_id']})": t['team_id'] for t in sorted_teams}
                         winner_team = st.selectbox("Champion Team *", options=list(team_options.keys()))
                         champion_year = st.number_input("Year *", min_value=2020, max_value=2030, value=datetime.now().year)
                         
@@ -209,7 +198,7 @@ with tab2:
                 else:
                     st.warning("No teams found in this league. Please add teams to the league first.")
             else:
-                st.info("No leagues found.")
+                st.success("🎉 All leagues have champions assigned!")
         else:
             st.error(f"Error loading leagues: {leagues_response.json().get('error', 'Unknown error')}")
     except Exception as e:
@@ -232,47 +221,32 @@ with tab3:
         all_player_awards = awards_response.json() if awards_response.status_code == 200 else []
         
         if all_player_awards:
-            st.subheader("Player Awards")
+            st.subheader("🏅 Player Awards")
             awards_df = pd.DataFrame(all_player_awards)
             display_cols = ['player_name', 'award_type', 'year']
             if 'description' in awards_df.columns:
                 display_cols.append('description')
-            st.dataframe(awards_df[display_cols], use_container_width=True, hide_index=True)
+            # Only use columns that exist
+            available_cols = [col for col in display_cols if col in awards_df.columns]
+            st.dataframe(awards_df[available_cols], use_container_width=True, hide_index=True)
         else:
             st.info("No player awards found.")
         
         st.divider()
         
-        # Fetch all leagues with their champions
-        leagues_response = requests.get(f"{API_BASE}/leagues")
-        leagues = leagues_response.json() if leagues_response.status_code == 200 else []
-        
-        # Fetch sports for display
-        sports_response = requests.get(f"{API_BASE}/sports")
-        sports = sports_response.json() if sports_response.status_code == 200 else []
-        sport_map = {s['sport_id']: s['name'] for s in sports}
-        
-        # Collect all champions
-        all_champions = []
-        for league in leagues:
-            champions_response = requests.get(f"{API_BASE}/leagues/{league['league_id']}/champions")
-            if champions_response.status_code == 200:
-                champions = champions_response.json()
-                for champion in champions:
-                    champion['league_name'] = league['name']
-                    champion['sport_name'] = sport_map.get(league.get('sport_played'), 'Unknown')
-                    all_champions.append(champion)
+        # Fetch all champions in a single efficient API call
+        champions_response = requests.get(f"{API_BASE}/champions")
+        all_champions = champions_response.json() if champions_response.status_code == 200 else []
         
         if all_champions:
-            st.subheader("League Champions")
+            st.subheader("🏆 League Champions")
             champions_df = pd.DataFrame(all_champions)
             display_cols = ['league_name', 'sport_name', 'year', 'winner_team_name']
-            if 'description' in champions_df.columns:
-                display_cols.append('description')
-            st.dataframe(champions_df[display_cols], use_container_width=True, hide_index=True)
+            # Only use columns that exist
+            available_cols = [col for col in display_cols if col in champions_df.columns]
+            st.dataframe(champions_df[available_cols], use_container_width=True, hide_index=True)
         else:
             st.info("No league champions found.")
             
     except Exception as e:
         st.error(f"Error: {str(e)}")
-
