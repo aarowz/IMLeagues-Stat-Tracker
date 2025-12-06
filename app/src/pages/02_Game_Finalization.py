@@ -6,7 +6,7 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("✅ Game Finalization")
+st.title("Game Finalization")
 st.write("Review game statistics and finalize scores before submitting.")
 
 # Stat keeper ID
@@ -97,7 +97,7 @@ st.write(f"**League:** {game['league_name']} - {game['sport_name']}")
 st.divider()
 
 # Score entry/confirmation
-st.subheader("📊 Final Score")
+st.subheader("Final Score")
 col1, col2, col3 = st.columns([2, 1, 2])
 
 with col1:
@@ -156,7 +156,7 @@ st.divider()
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.subheader(f"🏠 {home_team_name} Statistics")
+    st.subheader(f"{home_team_name} Statistics")
     
     # Team totals
     home_stat_count = team_totals.get('home_team_stat_count', 0)
@@ -178,7 +178,7 @@ with col_left:
         st.write(f"- {player['first_name']} {player['last_name']} ({len(player_stats)} stats)")
 
 with col_right:
-    st.subheader(f"✈️ {away_team_name} Statistics")
+    st.subheader(f"{away_team_name} Statistics")
     
     # Team totals
     away_stat_count = team_totals.get('away_team_stat_count', 0)
@@ -202,7 +202,7 @@ with col_right:
 st.divider()
 
 # All stat events
-st.subheader("📋 All Stat Events")
+st.subheader("All Stat Events")
 if stat_events:
     all_players_dict = {p['player_id']: p for p in players}
     
@@ -229,7 +229,7 @@ else:
 st.divider()
 
 # Finalize game button
-st.subheader("🚀 Finalize Game")
+st.subheader("Finalize Game")
 st.write("Once you've reviewed all statistics and confirmed the final scores, click below to finalize the game.")
 
 if st.button("✅ Finalize and Submit Game", type="primary", use_container_width=True):

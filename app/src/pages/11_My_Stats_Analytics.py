@@ -7,7 +7,7 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("📊 My Stats & Analytics")
+st.title("My Stats & Analytics")
 st.write("View your personal statistics and league rankings.")
 
 # Player ID - using default for now (player_id 2 is Joey Smith)

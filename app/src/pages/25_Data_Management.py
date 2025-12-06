@@ -393,22 +393,22 @@ with tab4:
             st.rerun()
     
     try:
-        # Fetch all players
-        players_response = requests.get(f"{API_BASE}/players")
+        # Search filter (applied at API/database level)
+        search_filter = st.text_input("Search by Name or Email", key="player_search_filter")
+        
+        # Build API request with search parameter
+        player_params = {}
+        if search_filter:
+            player_params["search"] = search_filter
+        
+        # Fetch players with search filter applied via SQL
+        players_response = requests.get(f"{API_BASE}/players", params=player_params)
         if players_response.status_code == 200:
             players = players_response.json()
             
             if players:
-                # Search filter
-                search_filter = st.text_input("Search by Name or Email", key="player_search_filter")
-                
-                # Apply filter
+                # Display players (already filtered by backend)
                 filtered_players = players
-                if search_filter:
-                    filtered_players = [p for p in players if 
-                                       search_filter.lower() in p.get('first_name', '').lower() or
-                                       search_filter.lower() in p.get('last_name', '').lower() or
-                                       search_filter.lower() in p.get('email', '').lower()]
                 
                 # Display players
                 if filtered_players:
@@ -420,21 +420,32 @@ with tab4:
                     st.subheader("Edit Player")
                     edit_search = st.text_input("Search Player to Edit (by name, email, or ID)", key="edit_player_search")
                     
-                    # Filter players based on search
-                    edit_filtered_players = players
+                    # Fetch players with edit search filter applied via SQL
+                    edit_player_params = {}
                     if edit_search:
-                        edit_filtered_players = [p for p in players if 
-                                                edit_search.lower() in p.get('first_name', '').lower() or
-                                                edit_search.lower() in p.get('last_name', '').lower() or
-                                                edit_search.lower() in p.get('email', '').lower() or
-                                                edit_search == str(p.get('player_id', ''))]
+                        edit_player_params["search"] = edit_search
+                    
+                    edit_players_response = requests.get(f"{API_BASE}/players", params=edit_player_params)
+                    edit_filtered_players = []
+                    if edit_players_response.status_code == 200:
+                        edit_filtered_players = edit_players_response.json()
+                        # Also check if search matches player_id exactly
+                        if edit_search and edit_search.isdigit():
+                            all_players_response = requests.get(f"{API_BASE}/players")
+                            if all_players_response.status_code == 200:
+                                all_players = all_players_response.json()
+                                matching_id = [p for p in all_players if p.get('player_id') == int(edit_search)]
+                                # Add ID matches if not already in filtered list
+                                for p in matching_id:
+                                    if p not in edit_filtered_players:
+                                        edit_filtered_players.append(p)
                     
                     if edit_filtered_players and edit_search:
                         # Show matching players as selectable options
                         player_options = {f"{p['first_name']} {p['last_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in edit_filtered_players}
                         selected_player_display = st.selectbox("Select from results", options=list(player_options.keys()), key="edit_player_select")
                         selected_player_id = player_options[selected_player_display]
-                        selected_player = next((p for p in players if p['player_id'] == selected_player_id), None)
+                        selected_player = next((p for p in edit_filtered_players if p['player_id'] == selected_player_id), None)
                     elif not edit_search:
                         st.info("Enter a search term above to find a player to edit.")
                         selected_player = None

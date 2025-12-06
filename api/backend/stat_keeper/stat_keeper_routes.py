@@ -40,6 +40,9 @@ def get_stat_keeper_games(keeper_id):
             cursor.close()
             return jsonify({"error": "Stat keeper not found"}), 404
         
+        # Get upcoming_only parameter from query string
+        upcoming_only = request.args.get("upcoming_only", "false").lower() == "true"
+        
         query = """
         SELECT g.game_id, g.date_played, g.start_time, g.location,
                g.home_score, g.away_score, g.league_played,
@@ -66,10 +69,19 @@ def get_stat_keeper_games(keeper_id):
         JOIN Leagues l ON g.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE gk.keeper_id = %s
-        ORDER BY g.date_played DESC, g.start_time DESC
         """
         
-        cursor.execute(query, (keeper_id,))
+        params = [keeper_id]
+        
+        # Add date filtering and ordering based on upcoming_only parameter
+        if upcoming_only:
+            query += " AND g.date_played >= CURDATE()"
+            query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
+        else:
+            query += " AND g.date_played < CURDATE()"
+            query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
+        
+        cursor.execute(query, params)
         games = cursor.fetchall()
         cursor.close()
         
