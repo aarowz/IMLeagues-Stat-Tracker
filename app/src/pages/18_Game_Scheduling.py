@@ -136,8 +136,11 @@ with tab2:
                     st.write(f"Date: {game['date_played']} | Location: {game['location']}")
                 
                 with col2:
-                    if st.button(f"View Stats", key=f"stats_past_{game['game_id']}_{idx}"):
-                        st.session_state[f"viewing_stats_{game['game_id']}"] = True
+                    is_viewing = st.session_state.get(f"viewing_stats_{game['game_id']}", False)
+                    button_text = "Collapse Stats" if is_viewing else "View Stats"
+                    if st.button(button_text, key=f"stats_past_{game['game_id']}_{idx}"):
+                        st.session_state[f"viewing_stats_{game['game_id']}"] = not is_viewing
+                        st.rerun()
                 
                 if st.session_state.get(f"viewing_stats_{game['game_id']}", False):
                     try:

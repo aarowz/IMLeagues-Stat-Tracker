@@ -220,13 +220,13 @@ def delete_game(game_id):
             return jsonify({"error": "Game not found"}), 404
         
         from datetime import date
-        game_date = game[1] if isinstance(game[1], date) else date.fromisoformat(str(game[1]))
+        date_played = game['date_played']
+        game_date = date_played if isinstance(date_played, date) else date.fromisoformat(str(date_played))
         today = date.today()
         
         if game_date < today:
             cursor.close()
             return jsonify({"error": "Cannot delete past games"}), 400
-        
         cursor.execute("DELETE FROM Teams_Games WHERE game_id = %s", (game_id,))
         cursor.execute("DELETE FROM Games WHERE game_id = %s", (game_id,))
         
