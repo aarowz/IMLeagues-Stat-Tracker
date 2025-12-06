@@ -6,7 +6,7 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("📅 My Games & Schedule")
+st.title("My Games & Schedule")
 st.write("View your upcoming and past games.")
 
 # Player ID
@@ -173,7 +173,7 @@ with tab2:
 
 # Summary statistics
 st.divider()
-st.subheader("📊 Summary")
+st.subheader("Summary")
 
 col1, col2, col3 = st.columns(3)
 

@@ -7,7 +7,7 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("🔍 Teams & Leagues Explorer")
+st.title("Teams & Leagues Explorer")
 st.write("Explore teams, view stats and lineups, track performance over time, and discover other sports and leagues.")
 
 # Player ID
@@ -352,7 +352,7 @@ with tab3:
 
 # Explore other sports section
 st.divider()
-st.subheader("🌍 Explore Other Sports")
+st.subheader("Explore Other Sports")
 
 if all_sports:
     sport_cols = st.columns(min(len(all_sports), 3))

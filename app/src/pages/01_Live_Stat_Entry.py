@@ -6,25 +6,23 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("⚡ Live Stat Entry")
+st.title("Live Stat Entry")
 st.write("Quickly log player statistics in real-time during games.")
 
 # Stat keeper ID - using default for now (could be stored in session_state)
 STAT_KEEPER_ID = 1
 API_BASE = "http://web-api:4000/stat-keeper"
 
-# Fetch assigned games
+# Fetch assigned games with filtering done at API/database level
 try:
-    games_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games")
+    games_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=true")
     if games_response.status_code == 200:
         all_games = games_response.json()
-        # Filter to upcoming or today's games for live entry
-        # Also filter out games without teams assigned (can't track stats without teams)
-        today = datetime.now().date()
+        # Filter out games without teams assigned (can't track stats without teams)
+        # This is UI logic, not data filtering, so it's acceptable to do in Python
         available_games = [
             g for g in all_games 
-            if datetime.strptime(g['date_played'], '%Y-%m-%d').date() >= today
-            and g.get('home_team') is not None 
+            if g.get('home_team') is not None 
             and g.get('away_team') is not None
         ]
     else:
@@ -85,7 +83,7 @@ away_players = [p for p in players if away_team_id and p['team_id'] == away_team
 col1, col2, col3 = st.columns([2, 1, 2])
 with col1:
     home_team_name = game.get('home_team') or 'TBD'
-    st.subheader(f"🏠 {home_team_name}")
+    st.subheader(f"{home_team_name}")
     st.metric("Score", game.get('home_score', 0))
 with col2:
     st.write("")
@@ -95,7 +93,7 @@ with col2:
     st.caption(game['location'])
 with col3:
     away_team_name = game.get('away_team') or 'TBD'
-    st.subheader(f"✈️ {away_team_name}")
+    st.subheader(f"{away_team_name}")
     st.metric("Score", game.get('away_score', 0))
 
 st.divider()
@@ -104,7 +102,7 @@ st.divider()
 col_left, col_right = st.columns([2, 1])
 
 with col_left:
-    st.subheader("📝 Quick Stat Entry")
+    st.subheader("Quick Stat Entry")
     
     # Sport-specific stat buttons (basketball example - can be expanded)
     sport_name = game.get('sport_name', '').lower()
@@ -217,7 +215,7 @@ with col_left:
     st.divider()
     
     # Recent stats with undo/delete
-    st.subheader("🔄 Recent Stats (Last 10)")
+    st.subheader("Recent Stats (Last 10)")
     if stat_events:
         recent_stats = stat_events[-10:]  # Last 10 events
         for event in reversed(recent_stats):
@@ -284,7 +282,7 @@ with col_left:
         st.info("No stats recorded yet. Start logging stats above!")
 
 with col_right:
-    st.subheader("📊 Live Summary")
+    st.subheader("Live Summary")
     
     # Team totals
     st.write("**Team Totals:**")

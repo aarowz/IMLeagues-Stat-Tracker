@@ -6,44 +6,43 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
-st.title("📅 My Assigned Games")
+st.title("My Assigned Games")
 st.write("View all games assigned to you as a stat keeper.")
 
 # Stat keeper ID
 STAT_KEEPER_ID = 1
 API_BASE = "http://web-api:4000/stat-keeper"
 
-# Fetch assigned games
+# Fetch assigned games with filtering done at API/database level
 try:
-    games_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games")
-    if games_response.status_code == 200:
-        all_games = games_response.json()
+    upcoming_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=true")
+    past_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=false")
+    
+    if upcoming_response.status_code == 200:
+        upcoming_games = upcoming_response.json()
     else:
-        all_games = []
-        st.error(f"Error fetching games: {games_response.json().get('error', 'Unknown error')}")
+        upcoming_games = []
+        st.error(f"Error fetching upcoming games: {upcoming_response.json().get('error', 'Unknown error')}")
+    
+    if past_response.status_code == 200:
+        past_games = past_response.json()
+    else:
+        past_games = []
+        st.error(f"Error fetching past games: {past_response.json().get('error', 'Unknown error')}")
 except Exception as e:
     st.error(f"Error: {str(e)}")
-    all_games = []
+    upcoming_games = []
+    past_games = []
+
+# Sort games (API already sorts, but ensure correct order for display)
+upcoming_games.sort(key=lambda x: (x['date_played'], x['start_time']))
+past_games.sort(key=lambda x: (x['date_played'], x['start_time']), reverse=True)
+
+all_games = upcoming_games + past_games
 
 if not all_games:
     st.info("You have no assigned games yet.")
     st.stop()
-
-# Separate games by status
-today = datetime.now().date()
-upcoming_games = []
-past_games = []
-
-for game in all_games:
-    game_date = datetime.strptime(game['date_played'], '%Y-%m-%d').date()
-    if game_date >= today:
-        upcoming_games.append(game)
-    else:
-        past_games.append(game)
-
-# Sort games
-upcoming_games.sort(key=lambda x: (x['date_played'], x['start_time']))
-past_games.sort(key=lambda x: (x['date_played'], x['start_time']), reverse=True)
 
 # Tabs for upcoming and past games
 tab1, tab2 = st.tabs(["📅 Upcoming Games", "📊 Past Games"])
@@ -205,7 +204,7 @@ with tab2:
 
 # Summary statistics
 st.divider()
-st.subheader("📊 Summary")
+st.subheader("Summary")
 
 col1, col2, col3, col4 = st.columns(4)
 
