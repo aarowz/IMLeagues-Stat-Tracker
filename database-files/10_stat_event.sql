@@ -1,4 +1,7 @@
-USE im_league_tracker; 
+USE im_league_tracker;
+
+-- Original stat events
+
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (218, 91, '4 assists', '2026-02-21 20:37:10');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (150, 301, '5 steals', '2026-09-16 10:40:31');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (333, 638, 'missed a free throw', '2026-02-20 13:30:00');
@@ -999,3 +1002,62 @@ insert into StatEvent (performed_by, scored_during, description, time_entered) v
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (846, 511, '6 shots on target', '2026-05-18 12:47:33');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (854, 928, '6 shots on target', '2026-05-14 03:39:19');
 insert into StatEvent (performed_by, scored_during, description, time_entered) values (191, 799, '5 assists', '2026-06-09 03:15:25');
+
+-- Duncan's Dunkers stat events
+
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 6, '28 points scored', '2025-11-01 05:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 6, '8 rebounds', '2025-11-01 05:10:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 6, '6 assists', '2025-11-01 05:20:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 6, '22 points scored', '2025-11-01 05:05:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 6, '10 rebounds', '2025-11-01 05:15:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 6, '4 assists', '2025-11-01 05:25:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 7, '18 points scored', '2025-11-05 05:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 7, '5 rebounds', '2025-11-05 05:10:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 7, '15 points scored', '2025-11-05 05:05:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 7, '7 rebounds', '2025-11-05 05:15:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 8, '32 points scored', '2025-11-08 10:30:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 8, '12 rebounds', '2025-11-08 10:40:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 8, '7 assists', '2025-11-08 10:50:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 8, '24 points scored', '2025-11-08 10:35:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 8, '9 rebounds', '2025-11-08 10:45:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 9, '25 points scored', '2025-11-12 09:40:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 9, '6 rebounds', '2025-11-12 09:50:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 9, '5 assists', '2025-11-12 10:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 9, '20 points scored', '2025-11-12 09:45:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 9, '8 rebounds', '2025-11-12 09:55:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 10, '30 points scored', '2025-11-15 19:30:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 10, '10 rebounds', '2025-11-15 19:40:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 10, '8 assists', '2025-11-15 19:50:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 10, '26 points scored', '2025-11-15 19:35:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 10, '11 rebounds', '2025-11-15 19:45:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 11, '22 points scored', '2025-11-18 12:35:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 11, '7 rebounds', '2025-11-18 12:45:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 11, '6 assists', '2025-11-18 12:55:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 11, '18 points scored', '2025-11-18 12:40:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 11, '9 rebounds', '2025-11-18 12:50:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 12, '27 points scored', '2025-11-22 06:30:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 12, '9 rebounds', '2025-11-22 06:40:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 12, '7 assists', '2025-11-22 06:50:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 12, '23 points scored', '2025-11-22 06:35:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 12, '8 rebounds', '2025-11-22 06:45:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 12, '5 assists', '2025-11-22 06:55:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 13, '16 points scored', '2025-11-25 14:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 13, '4 rebounds', '2025-11-25 14:10:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 13, '3 assists', '2025-11-25 14:20:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 13, '12 points scored', '2025-11-25 14:05:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 13, '5 rebounds', '2025-11-25 14:15:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 14, '19 points scored', '2025-11-28 11:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 14, '6 rebounds', '2025-11-28 11:10:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 14, '4 assists', '2025-11-28 11:20:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 14, '17 points scored', '2025-11-28 11:05:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 14, '7 rebounds', '2025-11-28 11:15:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 15, '21 points scored', '2025-12-01 15:00:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 15, '8 rebounds', '2025-12-01 15:10:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (1, 15, '6 assists', '2025-12-01 15:20:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 15, '19 points scored', '2025-12-01 15:05:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 15, '9 rebounds', '2025-12-01 15:15:00');
+insert into StatEvent (performed_by, scored_during, description, time_entered) values (2, 15, '5 assists', '2025-12-01 15:25:00');
+
+
+
+

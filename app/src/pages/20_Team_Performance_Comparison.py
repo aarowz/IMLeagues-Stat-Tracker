@@ -291,9 +291,10 @@ st.divider()
 st.subheader("Shareable Team Summary")
 
 if summary:
-    wins = summary.get('wins', 0)
-    losses = summary.get('losses', 0)
-    total_games = wins + losses
+    wins = int(summary.get('wins', 0) or 0)
+    losses = int(summary.get('losses', 0) or 0)
+    ties = int(summary.get('ties', 0) or 0)
+    total_games = wins + losses + ties
     if total_games > 0:
         win_pct = (wins / total_games * 100)
     else:
@@ -307,6 +308,7 @@ if summary:
 ## Record
 - Wins: {wins}
 - Losses: {losses}
+- Ties: {ties}
 - Win Percentage: {round(win_pct, 1)}%
 
 ## Team Stats
