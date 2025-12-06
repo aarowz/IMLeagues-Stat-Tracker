@@ -227,20 +227,9 @@ with tab3:
             st.rerun()
     
     try:
-        # Fetch all players with their awards
-        players_response = requests.get(f"{API_BASE}/players")
-        players = players_response.json() if players_response.status_code == 200 else []
-        player_map = {p['player_id']: f"{p['first_name']} {p['last_name']}" for p in players}
-        
-        # Collect all player awards
-        all_player_awards = []
-        for player in players[:50]:  # Limit to first 50 players for performance
-            awards_response = requests.get(f"{API_BASE}/players/{player['player_id']}/awards")
-            if awards_response.status_code == 200:
-                awards = awards_response.json()
-                for award in awards:
-                    award['player_name'] = player_map.get(player['player_id'], 'Unknown')
-                    all_player_awards.append(award)
+        # Fetch all player awards in a single efficient API call
+        awards_response = requests.get(f"{API_BASE}/player-awards")
+        all_player_awards = awards_response.json() if awards_response.status_code == 200 else []
         
         if all_player_awards:
             st.subheader("Player Awards")

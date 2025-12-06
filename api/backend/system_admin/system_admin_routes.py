@@ -1654,6 +1654,35 @@ def delete_player_award(player_id):
         return jsonify({"error": str(e)}), 500
 
 
+@system_admin.route("/player-awards", methods=["GET"])
+def get_all_player_awards():
+    """Get all player awards with player names - efficient single query"""
+    try:
+        cursor = db.get_db().cursor()
+        
+        query = """
+        SELECT pa.award_id, pa.award_type, pa.year, pa.description,
+               p.player_id, p.first_name, p.last_name, p.email
+        FROM Player_Awards pa
+        JOIN Players p ON pa.recipient = p.player_id
+        ORDER BY pa.year DESC, p.last_name, p.first_name
+        """
+        
+        cursor.execute(query)
+        awards = cursor.fetchall()
+        cursor.close()
+        
+        # Add player_name field for convenience
+        for award in awards:
+            award['player_name'] = f"{award['first_name']} {award['last_name']}"
+        
+        awards = convert_datetime_for_json(awards)
+        
+        return jsonify(awards), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @system_admin.route("/games", methods=["GET"])
 def get_all_games():
     try:
