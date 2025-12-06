@@ -292,7 +292,6 @@ def get_all_leagues():
         FROM Leagues l
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE 1=1
-        ORDER BY l.year ASC, l.semester, l.name
         """
         
         params = []
@@ -309,7 +308,7 @@ def get_all_leagues():
             query += " AND l.year = %s"
             params.append(year_filter)
         
-        #query += " ORDER BY l.year ASC, l.semester, l.name"
+        query += " ORDER BY l.year ASC, l.semester, l.name"
         
         cursor.execute(query, params)
         leagues = cursor.fetchall()
@@ -1315,7 +1314,7 @@ def get_player_teams(player_id):
         JOIN Leagues l ON t.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE tp.player_id = %s
-        ORDER BY l.year ASC, t.name
+        ORDER BY l.year ASC, l.name, t.name
         """
         
         cursor.execute(query, (player_id,))
@@ -2461,4 +2460,3 @@ def get_analytics_dashboard():
         return jsonify(result), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
-
