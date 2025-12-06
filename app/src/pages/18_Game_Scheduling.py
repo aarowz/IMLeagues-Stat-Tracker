@@ -49,7 +49,7 @@ with tab1:
     if upcoming_games:
         for idx, game in enumerate(upcoming_games):
             with st.container():
-                col1, col2, col3 = st.columns([3, 2, 1])
+                col1, col2 = st.columns([3, 2])
                 
                 with col1:
                     st.write(f"**{game['home_team']}** vs **{game['away_team']}**")
@@ -57,12 +57,37 @@ with tab1:
                     st.write(f"Location: {game['location']}")
                 
                 with col2:
-                    if st.button(f"Edit Game", key=f"edit_upcoming_{game['game_id']}_{idx}"):
-                        st.session_state[f"editing_game_{game['game_id']}"] = True
+                    col_edit, col_delete = st.columns(2)
+                    with col_edit:
+                        if st.button(f"Edit", key=f"edit_upcoming_{game['game_id']}_{idx}"):
+                            st.session_state[f"editing_game_{game['game_id']}"] = True
+                    with col_delete:
+                        if st.button(f"Delete", key=f"delete_upcoming_{game['game_id']}_{idx}", type="secondary"):
+                            st.session_state[f"confirming_delete_{game['game_id']}"] = True
                 
-                with col3:
-                    if st.button(f"View Details", key=f"view_upcoming_{game['game_id']}_{idx}"):
-                        st.session_state[f"viewing_game_{game['game_id']}"] = True
+                if st.session_state.get(f"confirming_delete_{game['game_id']}", False):
+                    st.warning(f"Are you sure you want to delete the game: {game['home_team']} vs {game['away_team']} on {game['date_played']}?")
+                    col_confirm, col_cancel_del = st.columns(2)
+                    with col_confirm:
+                        if st.button(f"Confirm Delete", key=f"confirm_delete_{game['game_id']}_{idx}", type="primary"):
+                            try:
+                                response = requests.delete(f"{API_BASE}/games/{game['game_id']}")
+                                if response.status_code == 200:
+                                    st.success("Game deleted successfully!")
+                                    st.session_state[f"confirming_delete_{game['game_id']}"] = False
+                                    st.rerun()
+                                else:
+                                    try:
+                                        error_msg = response.json().get('error', f'HTTP {response.status_code}: {response.text[:200]}')
+                                    except:
+                                        error_msg = f'HTTP {response.status_code}: {response.text[:200]}'
+                                    st.error(f"Error deleting game: {error_msg}")
+                            except Exception as e:
+                                st.error(f"Error: {str(e)}")
+                    with col_cancel_del:
+                        if st.button(f"Cancel", key=f"cancel_delete_{game['game_id']}_{idx}"):
+                            st.session_state[f"confirming_delete_{game['game_id']}"] = False
+                            st.rerun()
                 
                 if st.session_state.get(f"editing_game_{game['game_id']}", False):
                     with st.form(f"edit_form_upcoming_{game['game_id']}_{idx}"):
@@ -245,13 +270,53 @@ with tab4:
         if reminders_response.status_code == 200:
             reminders = reminders_response.json()
             if reminders:
-                for reminder in reminders[:5]:
-                    message = reminder['message'].replace('>', '\\>').replace('\n', ' ')
-                    time_sent = reminder['time_sent']
-                    st.markdown(f"- {message} ({time_sent})")
+                recent_count = min(5, len(reminders))
+                for reminder in reminders[:recent_count]:
+                    message = reminder.get('message', '').replace('>', '\\>').replace('\n', ' ')
+                    time_sent = reminder.get('time_sent', 'Unknown time')
+                    game_date = reminder.get('date_played')
+                    home_team = reminder.get('home_team')
+                    away_team = reminder.get('away_team')
+                    home_score = reminder.get('home_score')
+                    away_score = reminder.get('away_score')
+                    
+                    reminder_text = f"- {message} ({time_sent})"
+                    if game_date and home_team and away_team:
+                        if home_score is not None and away_score is not None:
+                            reminder_text += f" - Game: {home_team} vs {away_team} ({home_score}-{away_score}) on {game_date}"
+                        else:
+                            reminder_text += f" - Game: {home_team} vs {away_team} on {game_date}"
+                    elif game_date:
+                        reminder_text += f" - Game: {game_date}"
+                    st.markdown(reminder_text)
+                
+                if len(reminders) > 5:
+                    with st.expander(f"View all reminders ({len(reminders)} total)"):
+                        for reminder in reminders:
+                            message = reminder.get('message', '').replace('>', '\\>').replace('\n', ' ')
+                            time_sent = reminder.get('time_sent', 'Unknown time')
+                            game_date = reminder.get('date_played')
+                            home_team = reminder.get('home_team')
+                            away_team = reminder.get('away_team')
+                            home_score = reminder.get('home_score')
+                            away_score = reminder.get('away_score')
+                            
+                            reminder_text = f"- {message} ({time_sent})"
+                            if game_date and home_team and away_team:
+                                if home_score is not None and away_score is not None:
+                                    reminder_text += f" - Game: {home_team} vs {away_team} ({home_score}-{away_score}) on {game_date}"
+                                else:
+                                    reminder_text += f" - Game: {home_team} vs {away_team} on {game_date}"
+                            elif game_date:
+                                reminder_text += f" - Game: {game_date}"
+                            st.markdown(reminder_text)
             else:
                 st.info("No reminders sent yet.")
         else:
-            st.info("Could not load reminders.")
+            try:
+                error_data = reminders_response.json()
+                st.error(f"Error loading reminders: {error_data.get('error', 'Unknown error')}")
+            except:
+                st.error(f"Error loading reminders: HTTP {reminders_response.status_code}")
     except Exception as e:
-        st.info("Could not load reminders.")
+        st.error(f"Error loading reminders: {str(e)}")

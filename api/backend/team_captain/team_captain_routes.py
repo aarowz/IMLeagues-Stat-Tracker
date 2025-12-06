@@ -54,11 +54,11 @@ def get_team_games(team_id):
         params = [team_id, team_id]
         
         if upcoming_only:
-            query += " AND g.date_played >= CURDATE()"
+            query += " AND g.date_played >= CURRENT_DATE()"
+            query += " ORDER BY g.date_played ASC, g.start_time ASC"
         else:
-            query += " AND g.date_played < CURDATE()"
-        
-        query += " ORDER BY g.date_played DESC, g.start_time DESC"
+            query += " AND g.date_played < CURRENT_DATE()"
+            query += " ORDER BY g.date_played DESC, g.start_time DESC"
         
         cursor.execute(query, params)
         games = cursor.fetchall()
@@ -116,7 +116,25 @@ def create_game():
             if field not in data:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
         
+        if data["home_team_id"] == data["away_team_id"]:
+            return jsonify({"error": "Home team and away team cannot be the same"}), 400
+        
         cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT league_id FROM Leagues WHERE league_id = %s", (data["league_played"],))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "League not found"}), 404
+        
+        cursor.execute("SELECT team_id FROM Teams WHERE team_id = %s AND league_played = %s", (data["home_team_id"], data["league_played"]))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Home team not found or not in specified league"}), 404
+        
+        cursor.execute("SELECT team_id FROM Teams WHERE team_id = %s AND league_played = %s", (data["away_team_id"], data["league_played"]))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Away team not found or not in specified league"}), 404
         
         insert_query = """
         INSERT INTO Games (league_played, date_played, start_time, location)
@@ -149,6 +167,8 @@ def create_game():
         
         return jsonify({"message": "Game created successfully", "game_id": new_game_id}), 201
     except Error as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -187,6 +207,39 @@ def update_game(game_id):
         return jsonify({"error": str(e)}), 500
 
 
+@team_captain.route("/games/<int:game_id>", methods=["DELETE"])
+def delete_game(game_id):
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT game_id, date_played FROM Games WHERE game_id = %s", (game_id,))
+        game = cursor.fetchone()
+        
+        if not game:
+            cursor.close()
+            return jsonify({"error": "Game not found"}), 404
+        
+        from datetime import date
+        game_date = game[1] if isinstance(game[1], date) else date.fromisoformat(str(game[1]))
+        today = date.today()
+        
+        if game_date < today:
+            cursor.close()
+            return jsonify({"error": "Cannot delete past games"}), 400
+        
+        cursor.execute("DELETE FROM Teams_Games WHERE game_id = %s", (game_id,))
+        cursor.execute("DELETE FROM Games WHERE game_id = %s", (game_id,))
+        
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Game deleted successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @team_captain.route("/games/<int:game_id>/teams/<int:team_id>/stats", methods=["GET"])
 def get_team_game_stats(game_id, team_id):
     try:
@@ -194,8 +247,7 @@ def get_team_game_stats(game_id, team_id):
         
         query = """
         SELECT p.player_id, p.first_name, p.last_name,
-               COUNT(se.event_id) AS total_stat_events,
-               GROUP_CONCAT(DISTINCT se.description SEPARATOR ', ') AS stat_types
+               COUNT(se.event_id) AS total_stat_events
         FROM Players p
         JOIN Teams_Players tp ON p.player_id = tp.player_id
         LEFT JOIN StatEvent se ON p.player_id = se.performed_by AND se.scored_during = %s
@@ -265,24 +317,60 @@ def get_team_performance(team_id):
     try:
         cursor = db.get_db().cursor()
         
+        cursor.execute("SELECT team_id FROM Teams WHERE team_id = %s", (team_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Team not found"}), 404
         query = """
-        SELECT t.name, t.wins, t.losses,
-               COUNT(g.game_id) AS games_played,
-               AVG(g.home_score) AS avg_home_score,
-               AVG(g.away_score) AS avg_away_score
-        FROM Teams t
-        JOIN Teams_Games tg ON t.team_id = tg.team_id
-        JOIN Games g ON tg.game_id = g.game_id
-        WHERE t.team_id = %s
-        GROUP BY t.team_id, t.name, t.wins, t.losses
+        SELECT 
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+             WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+             AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+             AND ((tg2.is_home_team = TRUE AND g2.home_score > g2.away_score) OR 
+                  (tg2.is_home_team = FALSE AND g2.away_score > g2.home_score))) AS wins,
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+             WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+             AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+             AND ((tg2.is_home_team = TRUE AND g2.home_score < g2.away_score) OR 
+                  (tg2.is_home_team = FALSE AND g2.away_score < g2.home_score))) AS losses,
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+             WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+             AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+             AND g2.home_score = g2.away_score) AS ties,
+            (SELECT AVG(points) FROM (
+                SELECT g2.home_score AS points FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.team_id = %s AND tg2.is_home_team = TRUE AND g2.date_played < CURRENT_DATE() 
+                AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+                UNION ALL
+                SELECT g2.away_score AS points FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.team_id = %s AND tg2.is_home_team = FALSE AND g2.date_played < CURRENT_DATE() 
+                AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+            ) AS combined_points) AS avg_points_scored
         """
         
-        cursor.execute(query, (team_id,))
+        cursor.execute(query, (team_id, team_id, team_id, team_id, team_id))
         performance = cursor.fetchone()
         cursor.close()
         
         if not performance:
-            return jsonify({"error": "Team not found"}), 404
+            return jsonify({
+                "games_played": 0,
+                "wins": 0,
+                "losses": 0,
+                "ties": 0,
+                "avg_points_scored": 0
+            }), 200
+        
+        performance["wins"] = performance["wins"] or 0
+        performance["losses"] = performance["losses"] or 0
+        performance["ties"] = performance["ties"] or 0
+        performance["games_played"] = performance["wins"] + performance["losses"] + performance["ties"]
+        performance["avg_points_scored"] = float(performance["avg_points_scored"]) if performance["avg_points_scored"] else 0.0
         
         return jsonify(performance), 200
     except Error as e:
@@ -296,18 +384,36 @@ def get_team_performance_over_time(team_id):
         
         query = """
         SELECT g.date_played,
-               CASE WHEN tg.is_home_team = TRUE THEN g.home_score ELSE g.away_score END AS points_scored,
-               CASE WHEN tg.is_home_team = TRUE THEN g.away_score ELSE g.home_score END AS points_allowed,
-               CASE WHEN tg.is_home_team = TRUE AND g.home_score > g.away_score THEN 'W'
-                    WHEN tg.is_home_team = FALSE AND g.away_score > g.home_score THEN 'W'
-                    ELSE 'L' END AS result
+               (SELECT g2.home_score FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.game_id = g.game_id AND tg2.team_id = %s AND tg2.is_home_team = TRUE
+                UNION ALL
+                SELECT g2.away_score FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.game_id = g.game_id AND tg2.team_id = %s AND tg2.is_home_team = FALSE
+                LIMIT 1) AS points_scored,
+               (SELECT g2.away_score FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.game_id = g.game_id AND tg2.team_id = %s AND tg2.is_home_team = TRUE
+                UNION ALL
+                SELECT g2.home_score FROM Games g2
+                JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                WHERE tg2.game_id = g.game_id AND tg2.team_id = %s AND tg2.is_home_team = FALSE
+                LIMIT 1) AS points_allowed,
+               (SELECT 'W' FROM Teams_Games tg2 JOIN Games g2 ON tg2.game_id = g2.game_id
+                WHERE tg2.game_id = g.game_id AND tg2.team_id = %s 
+                AND ((tg2.is_home_team = TRUE AND g2.home_score > g2.away_score) OR 
+                     (tg2.is_home_team = FALSE AND g2.away_score > g2.home_score))
+                UNION ALL
+                SELECT 'L'
+                LIMIT 1) AS result
         FROM Games g
         JOIN Teams_Games tg ON g.game_id = tg.game_id
         WHERE tg.team_id = %s AND g.date_played < CURRENT_DATE()
         ORDER BY g.date_played ASC
         """
         
-        cursor.execute(query, (team_id,))
+        cursor.execute(query, (team_id, team_id, team_id, team_id, team_id, team_id))
         performance_data = cursor.fetchall()
         cursor.close()
         
@@ -386,26 +492,57 @@ def get_team_summary(team_id):
     try:
         cursor = db.get_db().cursor()
         
-        query = """
-        SELECT t.name, t.wins, t.losses,
-               COUNT(DISTINCT tp.player_id) AS total_players,
-               COUNT(DISTINCT g.game_id) AS games_played,
-               COUNT(se.event_id) AS total_stat_events
-        FROM Teams t
-        JOIN Teams_Players tp ON t.team_id = tp.team_id
-        LEFT JOIN Teams_Games tg ON t.team_id = tg.team_id
-        LEFT JOIN Games g ON tg.game_id = g.game_id
-        LEFT JOIN StatEvent se ON g.game_id = se.scored_during
-        WHERE t.team_id = %s
-        GROUP BY t.team_id, t.name, t.wins, t.losses
-        """
-        
-        cursor.execute(query, (team_id,))
-        summary = cursor.fetchone()
-        
-        if not summary:
+        cursor.execute("SELECT team_id, name FROM Teams WHERE team_id = %s", (team_id,))
+        team = cursor.fetchone()
+        if not team:
             cursor.close()
             return jsonify({"error": "Team not found"}), 404
+        
+        cursor.execute("""
+            SELECT COUNT(DISTINCT player_id) AS total_players
+            FROM Teams_Players
+            WHERE team_id = %s
+        """, (team_id,))
+        players_result = cursor.fetchone()
+        total_players = players_result["total_players"] if players_result else 0
+        
+        cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM Games g2
+                 JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                 WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+                 AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+                 AND ((tg2.is_home_team = TRUE AND g2.home_score > g2.away_score) OR 
+                      (tg2.is_home_team = FALSE AND g2.away_score > g2.home_score))) AS wins,
+                (SELECT COUNT(*) FROM Games g2
+                 JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                 WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+                 AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+                 AND ((tg2.is_home_team = TRUE AND g2.home_score < g2.away_score) OR 
+                      (tg2.is_home_team = FALSE AND g2.away_score < g2.home_score))) AS losses,
+                (SELECT COUNT(*) FROM Games g2
+                 JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+                 WHERE tg2.team_id = %s AND g2.date_played < CURRENT_DATE() 
+                 AND g2.home_score IS NOT NULL AND g2.away_score IS NOT NULL
+                 AND g2.home_score = g2.away_score) AS ties
+        """, (team_id, team_id, team_id))
+        game_stats = cursor.fetchone()
+        
+        wins = game_stats["wins"] or 0 if game_stats else 0
+        losses = game_stats["losses"] or 0 if game_stats else 0
+        ties = game_stats["ties"] or 0 if game_stats else 0
+        games_played = wins + losses + ties
+        
+        cursor.execute("""
+            SELECT COUNT(se.event_id) AS total_stat_events
+            FROM StatEvent se
+            JOIN Games g ON se.scored_during = g.game_id
+            JOIN Teams_Games tg ON g.game_id = tg.game_id
+            JOIN Teams_Players tp ON se.performed_by = tp.player_id
+            WHERE tg.team_id = %s AND tp.team_id = %s
+        """, (team_id, team_id))
+        stat_events_result = cursor.fetchone()
+        total_stat_events = stat_events_result["total_stat_events"] if stat_events_result else 0
         
         cursor.execute("""
             SELECT l.name AS league_name
@@ -415,6 +552,16 @@ def get_team_summary(team_id):
         """, (team_id,))
         league = cursor.fetchone()
         cursor.close()
+        
+        summary = {
+            "name": team["name"],
+            "wins": wins,
+            "losses": losses,
+            "ties": ties,
+            "games_played": games_played,
+            "total_players": total_players,
+            "total_stat_events": total_stat_events
+        }
         
         if league:
             summary["league_name"] = league["league_name"]
@@ -437,15 +584,16 @@ def create_reminder():
         cursor = db.get_db().cursor()
         
         insert_query = """
-        INSERT INTO Reminders (message, time_sent, status, team_id, game_id)
-        VALUES (%s, NOW(), 'sent', %s, %s)
+        INSERT INTO Reminders (message, time_sent, status, team_id, game_id, priority)
+        VALUES (%s, NOW(), 'sent', %s, %s, %s)
         """
         cursor.execute(
             insert_query,
             (
                 data["message"],
                 data["team_id"],
-                data.get("game_id")
+                data.get("game_id"),
+                data.get("priority", "medium")
             ),
         )
         
@@ -464,7 +612,16 @@ def get_team_reminders(team_id):
         cursor = db.get_db().cursor()
         
         query = """
-        SELECT r.reminder_id, r.message, r.time_sent, r.status, r.game_id, g.date_played
+        SELECT r.reminder_id, r.message, r.time_sent, r.status, r.game_id, r.priority, 
+               g.date_played, g.home_score, g.away_score,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team
         FROM Reminders r
         LEFT JOIN Games g ON r.game_id = g.game_id
         WHERE r.team_id = %s
@@ -474,6 +631,9 @@ def get_team_reminders(team_id):
         cursor.execute(query, (team_id,))
         reminders = cursor.fetchall()
         cursor.close()
+        
+        if not reminders:
+            return jsonify([]), 200
         
         reminders = convert_datetime_for_json(reminders)
         
@@ -487,17 +647,41 @@ def get_game_stat_events(game_id, team_id):
     try:
         cursor = db.get_db().cursor()
         
+        cursor.execute("""
+            SELECT tg.team_id 
+            FROM Teams_Games tg 
+            WHERE tg.game_id = %s AND tg.team_id = %s
+        """, (game_id, team_id))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Team not found in this game"}), 404
+        
         query = """
         SELECT se.event_id, se.performed_by, se.description, se.time_entered,
                p.first_name, p.last_name
         FROM StatEvent se
         JOIN Players p ON se.performed_by = p.player_id
-        JOIN Teams_Players tp ON p.player_id = tp.player_id
-        WHERE se.scored_during = %s AND tp.team_id = %s
+        WHERE se.scored_during = %s 
+        AND (
+            EXISTS (
+                SELECT 1 
+                FROM Teams_Players tp 
+                WHERE tp.player_id = se.performed_by 
+                AND tp.team_id = %s
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM Players_Games pg
+                JOIN Teams_Games tg ON pg.game_id = tg.game_id
+                WHERE pg.player_id = se.performed_by
+                AND pg.game_id = %s
+                AND tg.team_id = %s
+            )
+        )
         ORDER BY se.time_entered ASC
         """
         
-        cursor.execute(query, (game_id, team_id))
+        cursor.execute(query, (game_id, team_id, game_id, team_id))
         stat_events = cursor.fetchall()
         cursor.close()
         
@@ -515,20 +699,33 @@ def get_home_away_splits(team_id):
         
         query = """
         SELECT 
-            CASE WHEN tg.is_home_team = TRUE THEN 'Home' ELSE 'Away' END AS location_type,
+            'Home' AS location_type,
             COUNT(*) AS total_games,
-            SUM(CASE WHEN tg.is_home_team = TRUE AND g.home_score > g.away_score THEN 1
-                     WHEN tg.is_home_team = FALSE AND g.away_score > g.home_score THEN 1
-                     ELSE 0 END) AS wins,
-            AVG(CASE WHEN tg.is_home_team = TRUE THEN g.home_score ELSE g.away_score END) AS avg_points_scored,
-            AVG(CASE WHEN tg.is_home_team = TRUE THEN g.away_score ELSE g.home_score END) AS avg_points_allowed
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+             WHERE tg2.team_id = %s AND tg2.is_home_team = TRUE AND g2.date_played < CURRENT_DATE()
+             AND g2.home_score > g2.away_score) AS wins,
+            AVG(g.home_score) AS avg_points_scored,
+            AVG(g.away_score) AS avg_points_allowed
         FROM Games g
         JOIN Teams_Games tg ON g.game_id = tg.game_id
-        WHERE tg.team_id = %s AND g.date_played < CURRENT_DATE()
-        GROUP BY location_type
+        WHERE tg.team_id = %s AND tg.is_home_team = TRUE AND g.date_played < CURRENT_DATE()
+        UNION ALL
+        SELECT 
+            'Away' AS location_type,
+            COUNT(*) AS total_games,
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg2 ON g2.game_id = tg2.game_id
+             WHERE tg2.team_id = %s AND tg2.is_home_team = FALSE AND g2.date_played < CURRENT_DATE()
+             AND g2.away_score > g2.home_score) AS wins,
+            AVG(g.away_score) AS avg_points_scored,
+            AVG(g.home_score) AS avg_points_allowed
+        FROM Games g
+        JOIN Teams_Games tg ON g.game_id = tg.game_id
+        WHERE tg.team_id = %s AND tg.is_home_team = FALSE AND g.date_played < CURRENT_DATE()
         """
         
-        cursor.execute(query, (team_id,))
+        cursor.execute(query, (team_id, team_id, team_id, team_id))
         splits = cursor.fetchall()
         cursor.close()
         
@@ -547,14 +744,40 @@ def get_opponent_stats(team_id, opponent_id):
         query = """
         SELECT 
             COUNT(*) AS total_games,
-            SUM(CASE WHEN tg1.is_home_team = TRUE AND g.home_score > g.away_score THEN 1
-                     WHEN tg1.is_home_team = FALSE AND g.away_score > g.home_score THEN 1
-                     ELSE 0 END) AS wins,
-            SUM(CASE WHEN tg1.is_home_team = TRUE AND g.home_score < g.away_score THEN 1
-                     WHEN tg1.is_home_team = FALSE AND g.away_score < g.home_score THEN 1
-                     ELSE 0 END) AS losses,
-            AVG(CASE WHEN tg1.is_home_team = TRUE THEN g.home_score ELSE g.away_score END) AS avg_points_scored,
-            AVG(CASE WHEN tg1.is_home_team = TRUE THEN g.away_score ELSE g.home_score END) AS avg_points_allowed,
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+             JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+             WHERE g2.date_played < CURRENT_DATE()
+             AND ((tg1_2.is_home_team = TRUE AND g2.home_score > g2.away_score) OR 
+                  (tg1_2.is_home_team = FALSE AND g2.away_score > g2.home_score))) AS wins,
+            (SELECT COUNT(*) FROM Games g2
+             JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+             JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+             WHERE g2.date_played < CURRENT_DATE()
+             AND ((tg1_2.is_home_team = TRUE AND g2.home_score < g2.away_score) OR 
+                  (tg1_2.is_home_team = FALSE AND g2.away_score < g2.home_score))) AS losses,
+            (SELECT AVG(points) FROM (
+                SELECT g2.home_score AS points FROM Games g2
+                JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+                JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+                WHERE g2.date_played < CURRENT_DATE() AND tg1_2.is_home_team = TRUE
+                UNION ALL
+                SELECT g2.away_score AS points FROM Games g2
+                JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+                JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+                WHERE g2.date_played < CURRENT_DATE() AND tg1_2.is_home_team = FALSE
+            ) AS combined_points) AS avg_points_scored,
+            (SELECT AVG(points) FROM (
+                SELECT g2.away_score AS points FROM Games g2
+                JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+                JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+                WHERE g2.date_played < CURRENT_DATE() AND tg1_2.is_home_team = TRUE
+                UNION ALL
+                SELECT g2.home_score AS points FROM Games g2
+                JOIN Teams_Games tg1_2 ON g2.game_id = tg1_2.game_id AND tg1_2.team_id = %s
+                JOIN Teams_Games tg2_2 ON g2.game_id = tg2_2.game_id AND tg2_2.team_id = %s
+                WHERE g2.date_played < CURRENT_DATE() AND tg1_2.is_home_team = FALSE
+            ) AS combined_points) AS avg_points_allowed,
             t2.name AS opponent_name
         FROM Games g
         JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.team_id = %s
@@ -564,7 +787,7 @@ def get_opponent_stats(team_id, opponent_id):
         GROUP BY t2.name
         """
         
-        cursor.execute(query, (team_id, opponent_id))
+        cursor.execute(query, (team_id, opponent_id, team_id, opponent_id, team_id, opponent_id, team_id, opponent_id, team_id, opponent_id, team_id, opponent_id, team_id, opponent_id))
         opponent_stats = cursor.fetchone()
         cursor.close()
         
