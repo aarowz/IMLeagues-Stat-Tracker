@@ -13,18 +13,18 @@ st.write('')
 st.write('')
 st.write('### What would you like to do today?')
 
-if st.button('Record Game Stats', 
+if st.button('Live Stat Entry', 
              type='primary',
              use_container_width=True):
-    st.info("Game stats recording page coming soon!")
+    st.switch_page('pages/01_Live_Stat_Entry.py')
 
-if st.button('View Recent Games', 
+if st.button('Game Finalization', 
              type='primary',
              use_container_width=True):
-    st.info("Recent games page coming soon!")
+    st.switch_page('pages/02_Game_Finalization.py')
 
-if st.button('Manage Players', 
+if st.button('My Assigned Games', 
              type='primary',
              use_container_width=True):
-    st.info("Player management page coming soon!")
+    st.switch_page('pages/03_My_Assigned_Games.py')
 

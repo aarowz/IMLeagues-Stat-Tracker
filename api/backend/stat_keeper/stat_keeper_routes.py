@@ -43,16 +43,26 @@ def get_stat_keeper_games(keeper_id):
         query = """
         SELECT g.game_id, g.date_played, g.start_time, g.location,
                g.home_score, g.away_score, g.league_played,
-               t1.name AS home_team, t1.team_id AS home_team_id,
-               t2.name AS away_team, t2.team_id AS away_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team_id,
                l.name AS league_name, s.name AS sport_name,
                gk.assignment_date
         FROM Games_Keepers gk
         JOIN Games g ON gk.game_id = g.game_id
-        JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.is_home_team = TRUE
-        JOIN Teams t1 ON tg1.team_id = t1.team_id
-        JOIN Teams_Games tg2 ON g.game_id = tg2.game_id AND tg2.is_home_team = FALSE
-        JOIN Teams t2 ON tg2.team_id = t2.team_id
         JOIN Leagues l ON g.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE gk.keeper_id = %s
@@ -78,14 +88,24 @@ def get_game(game_id):
         query = """
         SELECT g.game_id, g.date_played, g.start_time, g.location, 
                g.home_score, g.away_score, g.league_played,
-               t1.name AS home_team, t1.team_id AS home_team_id,
-               t2.name AS away_team, t2.team_id AS away_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team_id,
                l.name AS league_name, s.name AS sport_name
         FROM Games g
-        JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.is_home_team = TRUE
-        JOIN Teams t1 ON tg1.team_id = t1.team_id
-        JOIN Teams_Games tg2 ON g.game_id = tg2.game_id AND tg2.is_home_team = FALSE
-        JOIN Teams t2 ON tg2.team_id = t2.team_id
         JOIN Leagues l ON g.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE g.game_id = %s
@@ -180,14 +200,24 @@ def get_game_summary(game_id):
         game_query = """
         SELECT g.game_id, g.date_played, g.start_time, g.location,
                g.home_score, g.away_score, g.league_played,
-               t1.name AS home_team, t1.team_id AS home_team_id,
-               t2.name AS away_team, t2.team_id AS away_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
+                LIMIT 1) AS home_team_id,
+               (SELECT t.name FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team,
+               (SELECT t.team_id FROM Teams_Games tg 
+                JOIN Teams t ON tg.team_id = t.team_id 
+                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
+                LIMIT 1) AS away_team_id,
                l.name AS league_name, s.name AS sport_name
         FROM Games g
-        JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.is_home_team = TRUE
-        JOIN Teams t1 ON tg1.team_id = t1.team_id
-        JOIN Teams_Games tg2 ON g.game_id = tg2.game_id AND tg2.is_home_team = FALSE
-        JOIN Teams t2 ON tg2.team_id = t2.team_id
         JOIN Leagues l ON g.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
         WHERE g.game_id = %s

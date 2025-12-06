@@ -13,23 +13,18 @@ st.write('')
 st.write('')
 st.write('### What would you like to do today?')
 
-if st.button('Manage Users', 
+if st.button('Data Management', 
              type='primary',
              use_container_width=True):
-    st.info("User management page coming soon!")
+    st.switch_page('pages/25_Data_Management.py')
 
-if st.button('Manage Teams', 
+if st.button('Awards Management', 
              type='primary',
              use_container_width=True):
-    st.info("Team management page coming soon!")
+    st.switch_page('pages/26_Awards_Management.py')
 
-if st.button('Manage Leagues', 
+if st.button('System Analytics & Configuration', 
              type='primary',
              use_container_width=True):
-    st.info("League management page coming soon!")
-
-if st.button('View System Logs', 
-             type='primary',
-             use_container_width=True):
-    st.info("System logs page coming soon!")
+    st.switch_page('pages/27_System_Analytics.py')
 

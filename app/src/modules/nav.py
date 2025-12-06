@@ -20,12 +20,30 @@ def StatkeeperHomeNav():
         "pages/00_Statkeeper_Home.py", label="Statkeeper Home", icon="📋"
     )
 
+def LiveStatEntryNav():
+    st.sidebar.page_link("pages/01_Live_Stat_Entry.py", label="Live Stat Entry", icon="⚡")
+
+def GameFinalizationNav():
+    st.sidebar.page_link("pages/02_Game_Finalization.py", label="Game Finalization", icon="✅")
+
+def MyAssignedGamesNav():
+    st.sidebar.page_link("pages/03_My_Assigned_Games.py", label="My Assigned Games", icon="📅")
+
 
 #### ------------------------ Player Role ------------------------
 def PlayerHomeNav():
     st.sidebar.page_link(
         "pages/10_Player_Home.py", label="Player Home", icon="🏃"
     )
+
+def MyStatsAnalyticsNav():
+    st.sidebar.page_link("pages/11_My_Stats_Analytics.py", label="My Stats & Analytics", icon="📊")
+
+def MyGamesScheduleNav():
+    st.sidebar.page_link("pages/12_My_Games_Schedule.py", label="My Games & Schedule", icon="📅")
+
+def TeamsLeaguesExplorerNav():
+    st.sidebar.page_link("pages/13_Teams_Leagues_Explorer.py", label="Teams & Leagues Explorer", icon="🔍")
 
 
 
@@ -44,14 +62,23 @@ def TeamStatsDashboardNav():
     st.sidebar.page_link("pages/19_Team_Stats_Dashboard.py", label="Team Stats Dashboard", icon="📊")
 
 def TeamPerformanceComparisonNav():
-    st.sidebar.page_link("pages/22_Team_Performance_Comparison.py", label="Team Performance Comparison", icon="📈")
+    st.sidebar.page_link("pages/20_Team_Performance_Comparison.py", label="Team Performance Comparison", icon="📈")
 
 
 #### ------------------------ System Admin Role ------------------------
 def SystemAdminHomeNav():
     st.sidebar.page_link(
-        "pages/20_System_Admin_Home.py", label="System Admin Home", icon="🖥️"
+        "pages/24_System_Admin_Home.py", label="System Admin Home", icon="🖥️"
     )
+
+def DataManagementNav():
+    st.sidebar.page_link("pages/25_Data_Management.py", label="Data Management", icon="📊")
+
+def AwardsManagementNav():
+    st.sidebar.page_link("pages/26_Awards_Management.py", label="Awards Management", icon="🏆")
+
+def SystemAnalyticsNav():
+    st.sidebar.page_link("pages/27_System_Analytics.py", label="System Analytics", icon="📈")
 
 
 # --------------------------------Links Function -----------------------------------------------
@@ -78,10 +105,16 @@ def SideBarLinks(show_home=False):
         # If the user is a statkeeper, show statkeeper pages
         if st.session_state["role"] == "statkeeper":
             StatkeeperHomeNav()
+            LiveStatEntryNav()
+            GameFinalizationNav()
+            MyAssignedGamesNav()
 
         # If the user is a player, show player pages
         if st.session_state["role"] == "player":
             PlayerHomeNav()
+            MyStatsAnalyticsNav()
+            MyGamesScheduleNav()
+            TeamsLeaguesExplorerNav()
 
         # If the user is a team captain, show team captain pages
         if st.session_state["role"] == "team_captain":
@@ -93,6 +126,9 @@ def SideBarLinks(show_home=False):
         # If the user is an administrator, give them access to the administrator pages
         if st.session_state["role"] == "administrator":
             SystemAdminHomeNav()
+            DataManagementNav()
+            AwardsManagementNav()
+            SystemAnalyticsNav()
 
     # Always show the About page at the bottom of the list of links
     AboutPageNav()

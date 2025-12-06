@@ -44,21 +44,21 @@ st.write('#### HI! As which user would you like to log in?')
 # functionality, we put a button on the screen that the user 
 # can click to MIMIC logging in as that mock user. 
 
-if st.button("Act as Alex, a Statkeeper", 
+if st.button("Act as Jim, a Statkeeper", 
             type = 'primary', 
             use_container_width=True):
     st.session_state['authenticated'] = True
     st.session_state['role'] = 'statkeeper'
-    st.session_state['first_name'] = 'Alex'
+    st.session_state['first_name'] = 'Jim'
     logger.info("Logging in as Statkeeper Persona")
     st.switch_page('pages/00_Statkeeper_Home.py')
 
-if st.button('Act as Jordan, a Player', 
+if st.button('Act as Joey, a Player', 
             type = 'primary', 
             use_container_width=True):
     st.session_state['authenticated'] = True
     st.session_state['role'] = 'player'
-    st.session_state['first_name'] = 'Jordan'
+    st.session_state['first_name'] = 'Joey'
     logger.info("Logging in as Player Persona")
     st.switch_page('pages/10_Player_Home.py')
 
@@ -77,7 +77,7 @@ if st.button('Act as System Administrator',
     st.session_state['authenticated'] = True
     st.session_state['role'] = 'administrator'
     st.session_state['first_name'] = 'SysAdmin'
-    st.switch_page('pages/20_System_Admin_Home.py')
+    st.switch_page('pages/24_System_Admin_Home.py')
 
 
 
