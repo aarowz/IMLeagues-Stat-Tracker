@@ -190,7 +190,7 @@ with tab2:
                 with col1:
                     new_league_name = st.text_input("League Name *", placeholder="e.g., Spring Basketball League")
                     new_league_sport = st.selectbox("Sport *", options=[s['sport_id'] for s in sports],
-                                                   format_func=lambda x: next((s['name'] for s in sports if s['sport_id'] == x), f"Sport {x}"))
+                                                   format_func=lambda x: next((f"{s['name']} (ID: {s['sport_id']})" for s in sports if s['sport_id'] == x), f"Unknown (ID: {x})"))
                     new_league_max_teams = st.number_input("Max Teams", min_value=0, value=0)
                 with col2:
                     new_league_semester = st.selectbox("Semester", options=["Fall", "Spring", "Summer", "Winter"])
@@ -242,7 +242,7 @@ with tab3:
             
             if sports:
                 # Select sport
-                sport_options = {f"{s['name']}": s['sport_id'] for s in sports}
+                sport_options = {f"{s['name']} (ID: {s['sport_id']})": s['sport_id'] for s in sports}
                 selected_sport_display = st.selectbox("Select Sport", options=list(sport_options.keys()))
                 selected_sport_id = sport_options[selected_sport_display]
                 

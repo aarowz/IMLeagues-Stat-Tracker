@@ -71,7 +71,7 @@ with tab1:
                                        search_filter.lower() in p.get('email', '').lower()]
                 
                 # Select player
-                player_options = {f"{p['first_name']} {p['last_name']} ({p['email']})": p['player_id'] for p in filtered_players}
+                player_options = {f"{p['first_name']} {p['last_name']} ({p['email']}) (ID: {p['player_id']})": p['player_id'] for p in filtered_players}
                 selected_player_display = st.selectbox("Select Player", options=list(player_options.keys()))
                 selected_player_id = player_options[selected_player_display]
                 
@@ -91,7 +91,7 @@ with tab1:
                     # Delete award option
                     st.divider()
                     st.subheader("Remove Award")
-                    award_options = {f"{a['award_type']} ({a['year']})": a['award_id'] for a in existing_awards}
+                    award_options = {f"{a['award_type']} ({a['year']}) (ID: {a['award_id']})": a['award_id'] for a in existing_awards}
                     award_to_delete = st.selectbox("Select Award to Remove", options=list(award_options.keys()))
                     
                     if st.button("Delete Award", type="secondary"):
@@ -159,7 +159,7 @@ with tab2:
             
             if leagues:
                 # Select league
-                league_options = {f"{l['name']} ({sport_map.get(l.get('sport_played'), 'Unknown')})": l['league_id'] for l in leagues}
+                league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({sport_map.get(l.get('sport_played'), 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in leagues}
                 selected_league_display = st.selectbox("Select League", options=list(league_options.keys()))
                 selected_league_id = league_options[selected_league_display]
                 
@@ -191,7 +191,7 @@ with tab2:
                     st.divider()
                     st.subheader("Record New Champion")
                     with st.form("assign_champion"):
-                        team_options = {f"{t.get('team_name', 'Unknown Team')} (Wins: {t.get('wins', 0)}, Losses: {t.get('losses', 0)})": t['team_id'] for t in teams}
+                        team_options = {f"{t.get('team_name', 'Unknown Team')} (Wins: {t.get('wins', 0)}, Losses: {t.get('losses', 0)}) (ID: {t['team_id']})": t['team_id'] for t in teams}
                         winner_team = st.selectbox("Champion Team *", options=list(team_options.keys()))
                         champion_year = st.number_input("Year *", min_value=2020, max_value=2030, value=datetime.now().year)
                         

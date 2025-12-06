@@ -116,23 +116,29 @@ with tab2:
             
             if leagues:
                 # Filters
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    sport_filter = st.selectbox("Filter by Sport", options=["All"] + [s['name'] for s in sports], key="league_sport_filter")
+                    # Sort sports by name and include ID in display
+                    sorted_sports = sorted(sports, key=lambda x: x.get('name', ''))
+                    sport_display_to_id = {f"{s['name']} (ID: {s['sport_id']})": s['sport_id'] for s in sorted_sports}
+                    sport_filter_options = ["All"] + list(sport_display_to_id.keys())
+                    sport_filter = st.selectbox("Filter by Sport", options=sport_filter_options, key="league_sport_filter")
                 with col2:
                     semester_filter = st.selectbox("Filter by Semester", options=["All", "Fall", "Spring", "Summer", "Winter"], key="league_semester_filter")
                 with col3:
-                    year_filter = st.number_input("Filter by Year", min_value=2020, max_value=2030, value=2025, key="league_year_filter")
+                    min_year_filter = st.number_input("Min Year", min_value=2020, max_value=2030, value=2020, key="league_min_year_filter")
+                with col4:
+                    max_year_filter = st.number_input("Max Year", min_value=2020, max_value=2030, value=2030, key="league_max_year_filter")
                 
                 # Apply filters
                 filtered_leagues = leagues
                 if sport_filter != "All":
-                    sport_id = next((s['sport_id'] for s in sports if s['name'] == sport_filter), None)
+                    sport_id = sport_display_to_id.get(sport_filter)
                     if sport_id:
                         filtered_leagues = [l for l in filtered_leagues if l.get('sport_played') == sport_id]
                 if semester_filter != "All":
                     filtered_leagues = [l for l in filtered_leagues if l.get('semester') == semester_filter]
-                filtered_leagues = [l for l in filtered_leagues if l.get('year') == year_filter]
+                filtered_leagues = [l for l in filtered_leagues if l.get('year') and min_year_filter <= l.get('year') <= max_year_filter]
                 
                 # Display leagues
                 if filtered_leagues:
@@ -154,7 +160,7 @@ with tab2:
                     # Edit league section
                     st.divider()
                     st.subheader("Edit League")
-                    league_options = {f"{l['name']} (ID: {l['league_id']})": l['league_id'] for l in leagues}
+                    league_options = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in leagues}
                     selected_league_display = st.selectbox("Select League to Edit", options=list(league_options.keys()))
                     selected_league_id = league_options[selected_league_display]
                     
@@ -166,7 +172,7 @@ with tab2:
                             with col1:
                                 new_name = st.text_input("League Name", value=selected_league.get('name', ''))
                                 new_sport = st.selectbox("Sport", options=[s['sport_id'] for s in sports], 
-                                                         format_func=lambda x: sport_map.get(x, f"Sport {x}"),
+                                                         format_func=lambda x: f"{sport_map.get(x, 'Unknown')} (ID: {x})",
                                                          index=[s['sport_id'] for s in sports].index(selected_league.get('sport_played')) if selected_league.get('sport_played') in [s['sport_id'] for s in sports] else 0)
                                 new_max_teams = st.number_input("Max Teams", min_value=0, value=selected_league.get('max_teams') or 0)
                             with col2:
@@ -202,7 +208,7 @@ with tab2:
                         with col1:
                             new_league_name = st.text_input("League Name *")
                             new_league_sport = st.selectbox("Sport *", options=[s['sport_id'] for s in sports],
-                                                           format_func=lambda x: sport_map.get(x, f"Sport {x}"))
+                                                           format_func=lambda x: f"{sport_map.get(x, 'Unknown')} (ID: {x})")
                             new_league_max_teams = st.number_input("Max Teams", min_value=0, value=0)
                         with col2:
                             new_league_semester = st.selectbox("Semester", options=["Fall", "Spring", "Summer", "Winter"])
@@ -259,20 +265,24 @@ with tab3:
             # Fetch leagues for filtering
             leagues_response = requests.get(f"{API_BASE}/leagues")
             leagues = leagues_response.json() if leagues_response.status_code == 200 else []
-            league_map = {l['league_id']: l['name'] for l in leagues}
+            league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
             
             if teams:
                 # Filters
                 col1, col2 = st.columns(2)
                 with col1:
-                    league_filter = st.selectbox("Filter by League", options=["All"] + [l['name'] for l in leagues], key="team_league_filter")
+                    # Sort leagues by start date (most recent first) and include year in display
+                    sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
+                    league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+                    league_filter_options = ["All"] + list(league_display_to_id.keys())
+                    league_filter = st.selectbox("Filter by League", options=league_filter_options, key="team_league_filter")
                 with col2:
                     search_filter = st.text_input("Search by Team Name", key="team_search_filter")
                 
                 # Apply filters
                 filtered_teams = teams
                 if league_filter != "All":
-                    league_id = next((l['league_id'] for l in leagues if l['name'] == league_filter), None)
+                    league_id = league_display_to_id.get(league_filter)
                     if league_id:
                         filtered_teams = [t for t in filtered_teams if t.get('league_played') == league_id]
                 if search_filter:
@@ -310,7 +320,7 @@ with tab3:
                             with col1:
                                 new_name = st.text_input("Team Name", value=selected_team.get('name', ''))
                                 new_league = st.selectbox("League", options=[l['league_id'] for l in leagues],
-                                                         format_func=lambda x: league_map.get(x, f"League {x}"),
+                                                         format_func=lambda x: league_map.get(x, f"Unknown (ID: {x})"),
                                                          index=[l['league_id'] for l in leagues].index(selected_team.get('league_played')) if selected_team.get('league_played') in [l['league_id'] for l in leagues] else 0)
                             with col2:
                                 new_wins = st.number_input("Wins", min_value=0, value=selected_team.get('wins', 0))
@@ -341,7 +351,7 @@ with tab3:
                         with col1:
                             new_team_name = st.text_input("Team Name *")
                             new_team_league = st.selectbox("League *", options=[l['league_id'] for l in leagues],
-                                                          format_func=lambda x: league_map.get(x, f"League {x}"))
+                                                          format_func=lambda x: league_map.get(x, f"Unknown (ID: {x})"))
                         with col2:
                             new_team_wins = st.number_input("Wins", min_value=0, value=0)
                             new_team_losses = st.number_input("Losses", min_value=0, value=0)
@@ -502,20 +512,24 @@ with tab5:
             # Fetch leagues for filtering
             leagues_response = requests.get(f"{API_BASE}/leagues")
             leagues = leagues_response.json() if leagues_response.status_code == 200 else []
-            league_map = {l['league_id']: l['name'] for l in leagues}
+            league_map = {l['league_id']: f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})" for l in leagues}
             
             if games:
                 # Filters
                 col1, col2 = st.columns(2)
                 with col1:
-                    league_filter = st.selectbox("Filter by League", options=["All"] + [l['name'] for l in leagues], key="game_league_filter")
+                    # Sort leagues by start date (most recent first) and include year and ID in display
+                    sorted_leagues = sorted(leagues, key=lambda x: x.get('league_start') or '', reverse=True)
+                    league_display_to_id = {f"{l['name']} ({l.get('year', 'N/A')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+                    league_filter_options = ["All"] + list(league_display_to_id.keys())
+                    league_filter = st.selectbox("Filter by League", options=league_filter_options, key="game_league_filter")
                 with col2:
                     date_filter = st.date_input("Filter by Date", value=None, key="game_date_filter")
                 
                 # Apply filters
                 filtered_games = games
                 if league_filter != "All":
-                    league_id = next((l['league_id'] for l in leagues if l['name'] == league_filter), None)
+                    league_id = league_display_to_id.get(league_filter)
                     if league_id:
                         filtered_games = [g for g in filtered_games if g.get('league_played') == league_id]
                 if date_filter:
@@ -557,7 +571,7 @@ with tab5:
                                 new_location = st.text_input("Location", value=selected_game.get('location', ''))
                             with col2:
                                 new_league = st.selectbox("League", options=[l['league_id'] for l in leagues],
-                                                          format_func=lambda x: league_map.get(x, f"League {x}"),
+                                                          format_func=lambda x: league_map.get(x, f"Unknown (ID: {x})"),
                                                           index=[l['league_id'] for l in leagues].index(selected_game.get('league_played')) if selected_game.get('league_played') in [l['league_id'] for l in leagues] else 0)
                                 new_home_score = st.number_input("Home Score", min_value=0, value=selected_game.get('home_score') or 0)
                                 new_away_score = st.number_input("Away Score", min_value=0, value=selected_game.get('away_score') or 0)
@@ -590,7 +604,7 @@ with tab5:
                             new_game_location = st.text_input("Location")
                         with col2:
                             new_game_league = st.selectbox("League *", options=[l['league_id'] for l in leagues],
-                                                          format_func=lambda x: league_map.get(x, f"League {x}"))
+                                                          format_func=lambda x: league_map.get(x, f"Unknown (ID: {x})"))
                             new_game_home_score = st.number_input("Home Score", min_value=0, value=0)
                             new_game_away_score = st.number_input("Away Score", min_value=0, value=0)
                         
