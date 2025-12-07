@@ -573,6 +573,7 @@ def get_team_summary(team_id):
 
 @team_captain.route("/reminders", methods=["POST"])
 def create_reminder():
+    cursor = None
     try:
         data = request.get_json()
         
@@ -583,6 +584,29 @@ def create_reminder():
         
         cursor = db.get_db().cursor()
         
+        # Validate team_id exists
+        cursor.execute("SELECT team_id, name FROM Teams WHERE team_id = %s", (data["team_id"],))
+        team_result = cursor.fetchone()
+        if not team_result:
+            cursor.close()
+            # Check if any teams exist at all
+            cursor = db.get_db().cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM Teams")
+            team_count = cursor.fetchone()
+            cursor.close()
+            if team_count and team_count.get("count", 0) == 0:
+                return jsonify({"error": f"Team with ID {data['team_id']} not found. No teams exist in the database. Please ensure the database is properly initialized."}), 404
+            else:
+                return jsonify({"error": f"Team with ID {data['team_id']} not found. Available teams may have different IDs. Please check your database."}), 404
+        
+        # Validate game_id if provided
+        game_id = data.get("game_id")
+        if game_id is not None:
+            cursor.execute("SELECT game_id FROM Games WHERE game_id = %s", (game_id,))
+            if not cursor.fetchone():
+                cursor.close()
+                return jsonify({"error": f"Game with ID {game_id} not found"}), 404
+        
         insert_query = """
         INSERT INTO Reminders (message, time_sent, status, team_id, game_id, priority)
         VALUES (%s, NOW(), 'sent', %s, %s, %s)
@@ -592,7 +616,7 @@ def create_reminder():
             (
                 data["message"],
                 data["team_id"],
-                data.get("game_id"),
+                game_id,  # Use the validated game_id variable
                 data.get("priority", "medium")
             ),
         )
@@ -603,7 +627,17 @@ def create_reminder():
         
         return jsonify({"message": "Reminder created successfully", "reminder_id": new_reminder_id}), 201
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        # Return more detailed error message
+        error_msg = str(e)
+        if cursor:
+            cursor.close()
+        return jsonify({"error": f"Database error: {error_msg}"}), 500
+    except Exception as e:
+        # Catch any other exceptions
+        error_msg = str(e)
+        if cursor:
+            cursor.close()
+        return jsonify({"error": f"Unexpected error: {error_msg}"}), 500
 
 
 @team_captain.route("/teams/<int:team_id>/reminders", methods=["GET"])
@@ -944,5 +978,57 @@ def get_all_stat_keepers():
         stat_keepers = convert_datetime_for_json(stat_keepers)
         
         return jsonify(stat_keepers), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/leagues", methods=["GET"])
+def get_all_leagues():
+    """Get all leagues for team captain to select from when scheduling games"""
+    try:
+        cursor = db.get_db().cursor()
+        
+        query = """
+        SELECT league_id, name, sport_played, semester, year
+        FROM Leagues
+        ORDER BY year DESC, semester DESC, name ASC
+        """
+        
+        cursor.execute(query)
+        leagues = cursor.fetchall()
+        cursor.close()
+        
+        leagues = convert_datetime_for_json(leagues)
+        
+        return jsonify(leagues), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/leagues/<int:league_id>/teams", methods=["GET"])
+def get_league_teams(league_id):
+    """Get all teams in a specific league for team captain to select opponents"""
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT league_id FROM Leagues WHERE league_id = %s", (league_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "League not found"}), 404
+        
+        query = """
+        SELECT team_id, name, league_played
+        FROM Teams
+        WHERE league_played = %s
+        ORDER BY name ASC
+        """
+        
+        cursor.execute(query, (league_id,))
+        teams = cursor.fetchall()
+        cursor.close()
+        
+        teams = convert_datetime_for_json(teams)
+        
+        return jsonify(teams), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500

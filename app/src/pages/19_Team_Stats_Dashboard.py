@@ -49,35 +49,117 @@ if performance:
 
 st.divider()
 
-tab1, tab2 = st.tabs(["Performance Over Time", "Edit Game Stats"])
+try:
+    comparison_response = requests.get(f"{API_BASE}/teams/{TEAM_ID}/league-comparison")
+    if comparison_response.status_code == 200:
+        comparison = comparison_response.json()
+    else:
+        comparison = None
+except Exception as e:
+    comparison = None
+
+tab1, tab2, tab3 = st.tabs(["Performance Over Time", "League Comparison", "Edit Game Stats"])
 
 with tab1:
     st.subheader("Team Performance Over Time")
+    st.write("Track your team's scoring trend across the season and compare performance to league averages.")
     
     if performance_over_time:
         df = pd.DataFrame(performance_over_time)
         df['date_played'] = pd.to_datetime(df['date_played'])
         df = df.sort_values('date_played')
         
+        # Top graph: Average points per game over time
+        st.write("**Scoring Trend: Points Per Game Over Time**")
         st.line_chart(df.set_index('date_played')['points_scored'], use_container_width=True)
-        st.caption("Points Scored Per Game")
+        st.caption("This line chart shows points per game over time, demonstrating user story Miles-3: seeing a dashboard that tracks team performance and improvement over time.")
         
-        col1, col2 = st.columns(2)
+        st.divider()
+        
+        # Bottom section: Win/Loss record and log of past results
+        col1, col2 = st.columns([1, 1])
         
         with col1:
+            st.write("**Win/Loss Record**")
             results_df = pd.DataFrame({
                 'Result': df['result'].value_counts().index,
                 'Count': df['result'].value_counts().values
             })
             st.bar_chart(results_df.set_index('Result'), use_container_width=True)
-            st.caption("Win/Loss Record")
+            st.caption("Team win/loss breakdown")
         
         with col2:
-            st.dataframe(df[['date_played', 'points_scored', 'points_allowed', 'result']], use_container_width=True)
+            st.write("**Log of All Past Results**")
+            # Format the dataframe nicely
+            display_df = df[['date_played', 'points_scored', 'points_allowed', 'result']].copy()
+            display_df['date_played'] = display_df['date_played'].dt.strftime('%Y-%m-%d')
+            display_df.columns = ['Date', 'Points Scored', 'Points Allowed', 'Result']
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.info("No performance data available yet.")
 
 with tab2:
+    st.subheader("Team Performance vs League Averages")
+    st.write("Compare your team's performance to league averages to measure competitiveness. This demonstrates user story Miles-5: comparing my team's performance to league averages to measure competitiveness.")
+    
+    if comparison:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Average Points Scored Per Game**")
+            team_avg_scored = comparison["team"]["avg_points_scored"]
+            league_avg_scored = comparison["league"]["avg_points_scored"]
+            
+            comparison_df = pd.DataFrame({
+                "Metric": ["Your Team", "League Average"],
+                "Points Scored": [team_avg_scored, league_avg_scored]
+            })
+            st.bar_chart(comparison_df.set_index("Metric"), use_container_width=True)
+            
+            diff_scored = team_avg_scored - league_avg_scored
+            if diff_scored > 0:
+                st.success(f"Your team scores {round(diff_scored, 1)} more points on average than the league!")
+            elif diff_scored < 0:
+                st.warning(f"Your team scores {round(abs(diff_scored), 1)} fewer points on average than the league.")
+            else:
+                st.info("Your team scores exactly at the league average.")
+        
+        with col2:
+            st.write("**Average Points Allowed Per Game**")
+            team_avg_allowed = comparison["team"]["avg_points_allowed"]
+            league_avg_allowed = comparison["league"]["avg_points_allowed"]
+            
+            comparison_df_allowed = pd.DataFrame({
+                "Metric": ["Your Team", "League Average"],
+                "Points Allowed": [team_avg_allowed, league_avg_allowed]
+            })
+            st.bar_chart(comparison_df_allowed.set_index("Metric"), use_container_width=True)
+            
+            diff_allowed = team_avg_allowed - league_avg_allowed
+            if diff_allowed < 0:
+                st.success(f"Your team allows {round(abs(diff_allowed), 1)} fewer points on average than the league!")
+            elif diff_allowed > 0:
+                st.warning(f"Your team allows {round(diff_allowed, 1)} more points on average than the league.")
+            else:
+                st.info("Your team allows exactly at the league average.")
+        
+        st.divider()
+        st.write("**Detailed Comparison Table:**")
+        
+        diff_scored_str = f"+{round(diff_scored, 1)}" if diff_scored >= 0 else f"{round(diff_scored, 1)}"
+        diff_allowed_str = f"+{round(diff_allowed, 1)}" if diff_allowed >= 0 else f"{round(diff_allowed, 1)}"
+        
+        comparison_table = pd.DataFrame({
+            "Metric": ["Average Points Scored", "Average Points Allowed"],
+            "Your Team": [round(team_avg_scored, 1), round(team_avg_allowed, 1)],
+            "League Average": [round(league_avg_scored, 1), round(league_avg_allowed, 1)],
+            "Difference": [diff_scored_str, diff_allowed_str]
+        })
+        st.dataframe(comparison_table, use_container_width=True, hide_index=True)
+    else:
+        st.info("No league comparison data available yet.")
+
+with tab3:
     st.subheader("Edit Game Statistics")
     st.write("Select a game to review and edit its statistics.")
     

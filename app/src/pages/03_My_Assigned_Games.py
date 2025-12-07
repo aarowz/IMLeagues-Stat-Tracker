@@ -47,8 +47,8 @@ if not all_games:
     st.info("You have no assigned games yet.")
     st.stop()
 
-# Tabs for upcoming and finalized games
-tab1, tab2 = st.tabs(["📅 Upcoming Games", "✅ Finalized Games"])
+# Tabs for upcoming and past games
+tab1, tab2 = st.tabs(["📅 Upcoming Games", "📋 Past Games"])
 
 with tab1:
     st.subheader("Upcoming Games")
@@ -122,8 +122,8 @@ with tab1:
         st.info("No upcoming games assigned.")
 
 with tab2:
-    st.subheader("Finalized Games")
-    st.caption("Games that have been finalized and are available for viewing and analysis.")
+    st.subheader("Past Games")
+    st.caption("Games that have been played and are available for viewing and analysis.")
     
     if past_games:
         # Add dropdown to limit number of games shown

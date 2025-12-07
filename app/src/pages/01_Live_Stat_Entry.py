@@ -179,7 +179,8 @@ with col_left:
     
     player_options = {None: "Select Player..."}
     for p in all_players_list:
-        player_options[p['player_id']] = f"{p['first_name']} {p['last_name']} (ID: {p['player_id']})"
+        team_label = "🏠" if p.get('team_id') == game.get('home_team_id') else "✈️"
+        player_options[p['player_id']] = f"{team_label} {p['first_name']} {p['last_name']} (ID: {p['player_id']})"
     
     selected_player_id = st.selectbox(
         "Select Player",
@@ -211,7 +212,12 @@ with col_left:
                             json=stat_data
                         )
                         if response.status_code == 201:
-                            st.success(f"✅ {label} recorded!")
+                            response_data = response.json()
+                            points_added = response_data.get('points_added')
+                            if points_added:
+                                st.success(f"✅ {label} recorded! (+{points_added} point{'s' if points_added > 1 else ''})")
+                            else:
+                                st.success(f"✅ {label} recorded!")
                             st.rerun()
                         else:
                             st.error(f"Error: {response.json().get('error', 'Unknown error')}")
@@ -239,7 +245,12 @@ with col_left:
                                 json=stat_data
                             )
                             if response.status_code == 201:
-                                st.success("Stat added successfully!")
+                                response_data = response.json()
+                                points_added = response_data.get('points_added')
+                                if points_added:
+                                    st.success(f"Stat added successfully! (+{points_added} point{'s' if points_added > 1 else ''})")
+                                else:
+                                    st.success("Stat added successfully!")
                                 st.rerun()
                             else:
                                 st.error(f"Error: {response.json().get('error', 'Unknown error')}")
@@ -276,7 +287,7 @@ with col_left:
                             f"{API_BASE}/games/{game_id}/stat-events/{event['event_id']}"
                         )
                         if delete_response.status_code == 200:
-                            st.success("Stat deleted!")
+                            st.success("Stat deleted! Score recalculated.")
                             st.rerun()
                         else:
                             st.error(f"Error: {delete_response.json().get('error', 'Unknown error')}")
@@ -318,7 +329,7 @@ with col_left:
                                     json=update_data
                                 )
                                 if update_response.status_code == 200:
-                                    st.success("Stat updated!")
+                                    st.success("Stat updated! Score recalculated.")
                                     st.session_state[f"editing_{event['event_id']}"] = False
                                     st.rerun()
                                 else:

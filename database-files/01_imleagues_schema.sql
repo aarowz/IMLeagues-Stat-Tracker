@@ -6,35 +6,27 @@
 CREATE DATABASE IF NOT EXISTS im_league_tracker;
 USE im_league_tracker;
 
-DROP TABLE IF EXISTS Player_Awards;
-DROP TABLE IF EXISTS Champions;
-DROP TABLE IF EXISTS Reminders;
-DROP TABLE IF EXISTS StatEvent;
-DROP TABLE IF EXISTS Games_Keepers;
-DROP TABLE IF EXISTS Players_Games;
-DROP TABLE IF EXISTS Teams_Games;
-DROP TABLE IF EXISTS Teams_Players;
-DROP TABLE IF EXISTS Games;
-DROP TABLE IF EXISTS Players;
-DROP TABLE IF EXISTS Teams;
-DROP TABLE IF EXISTS Stat_Keepers;
-DROP TABLE IF EXISTS Rules;
-DROP TABLE IF EXISTS Leagues;
-DROP TABLE IF EXISTS Sports;
+-- ============================================================
+-- WARNING: DROP TABLE statements have been removed to prevent
+-- accidental data loss. These scripts only run when the MySQL
+-- container is first created with an empty data directory.
+-- If you need to reset the database, manually drop tables or
+-- recreate the container with: docker compose down db -v && docker compose up db
+-- ============================================================
 
 -- ============================================================
 -- STRONG ENTITIES
 -- ============================================================
 
 -- Sports table
-CREATE TABLE Sports (
+CREATE TABLE IF NOT EXISTS Sports (
     sport_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description TEXT
 );
 
 -- Leagues table
-CREATE TABLE Leagues (
+CREATE TABLE IF NOT EXISTS Leagues (
     league_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     sport_played INT NOT NULL,
@@ -49,7 +41,7 @@ CREATE TABLE Leagues (
 );
 
 -- Rules table
-CREATE TABLE Rules (
+CREATE TABLE IF NOT EXISTS Rules (
     rules_id INT AUTO_INCREMENT PRIMARY KEY,
     sports_id INT NOT NULL,
     team_size INT,
@@ -63,7 +55,7 @@ CREATE TABLE Rules (
 );
 
 -- Teams table
-CREATE TABLE Teams (
+CREATE TABLE IF NOT EXISTS Teams (
     team_id INT AUTO_INCREMENT PRIMARY KEY,
     founded_date DATE,
     name VARCHAR(100) NOT NULL,
@@ -76,7 +68,7 @@ CREATE TABLE Teams (
 );
 
 -- Players table
-CREATE TABLE Players (
+CREATE TABLE IF NOT EXISTS Players (
     player_id INT AUTO_INCREMENT PRIMARY KEY,
     phone_number VARCHAR(15) UNIQUE,
     first_name VARCHAR(50) NOT NULL,
@@ -85,7 +77,7 @@ CREATE TABLE Players (
 );
 
 -- Stat_Keepers table
-CREATE TABLE Stat_Keepers (
+CREATE TABLE IF NOT EXISTS Stat_Keepers (
     keeper_id INT AUTO_INCREMENT PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
@@ -94,7 +86,7 @@ CREATE TABLE Stat_Keepers (
 );
 
 -- Games table
-CREATE TABLE Games (
+CREATE TABLE IF NOT EXISTS Games (
     game_id INT AUTO_INCREMENT PRIMARY KEY,
     attendance INT,
     league_played INT NOT NULL,
@@ -109,7 +101,7 @@ CREATE TABLE Games (
 );
 
 -- StatEvent table
-CREATE TABLE StatEvent (
+CREATE TABLE IF NOT EXISTS StatEvent (
     event_id INT AUTO_INCREMENT PRIMARY KEY,
     performed_by INT NOT NULL,
     scored_during INT NOT NULL,
@@ -124,7 +116,7 @@ CREATE TABLE StatEvent (
 );
 
 -- Reminders table
-CREATE TABLE Reminders (
+CREATE TABLE IF NOT EXISTS Reminders (
     reminder_id INT AUTO_INCREMENT PRIMARY KEY,
     priority VARCHAR(20) DEFAULT 'medium',
     message TEXT NOT NULL,
@@ -141,7 +133,7 @@ CREATE TABLE Reminders (
 );
 
 -- Player_Awards table
-CREATE TABLE Player_Awards (
+CREATE TABLE IF NOT EXISTS Player_Awards (
     award_id INT AUTO_INCREMENT PRIMARY KEY,
     description TEXT,
     recipient INT NOT NULL,
@@ -153,7 +145,7 @@ CREATE TABLE Player_Awards (
 );
 
 -- Champions table
-CREATE TABLE Champions (
+CREATE TABLE IF NOT EXISTS Champions (
     champion_id INT AUTO_INCREMENT PRIMARY KEY,
     winner INT NOT NULL,
     league_id INT NOT NULL,
@@ -171,7 +163,7 @@ CREATE TABLE Champions (
 -- ============================================================
 
 -- Teams_Players bridge table
-CREATE TABLE Teams_Players (
+CREATE TABLE IF NOT EXISTS Teams_Players (
     player_id INT,
     team_id INT,
     role VARCHAR(20) DEFAULT 'player',
@@ -185,7 +177,7 @@ CREATE TABLE Teams_Players (
 );
 
 -- Teams_Games bridge table
-CREATE TABLE Teams_Games (
+CREATE TABLE IF NOT EXISTS Teams_Games (
     team_id INT,
     game_id INT,
     is_home_team BOOLEAN DEFAULT FALSE,
@@ -199,7 +191,7 @@ CREATE TABLE Teams_Games (
 );
 
 -- Players_Games bridge table (for game lineups)
-CREATE TABLE Players_Games (
+CREATE TABLE IF NOT EXISTS Players_Games (
     player_id INT,
     game_id INT,
     is_starter BOOLEAN DEFAULT FALSE,
@@ -214,7 +206,7 @@ CREATE TABLE Players_Games (
 );
 
 -- Games_Keepers bridge table
-CREATE TABLE Games_Keepers (
+CREATE TABLE IF NOT EXISTS Games_Keepers (
     keeper_id INT,
     game_id INT,
     assignment_date DATE DEFAULT (CURRENT_DATE),
