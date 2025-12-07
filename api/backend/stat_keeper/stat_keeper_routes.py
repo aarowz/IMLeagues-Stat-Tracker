@@ -381,7 +381,7 @@ def update_game(game_id):
         if "away_score" in data:
             update_fields.append("away_score = %s")
             params.append(data["away_score"])
-         
+        
         if "date_played" in data:
             update_fields.append("date_played = %s")
             params.append(data["date_played"])
