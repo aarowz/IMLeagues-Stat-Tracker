@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from backend.db_connection import db
 from mysql.connector import Error
+import pymysql.err
 from datetime import datetime, timedelta, date, time
 
 system_admin = Blueprint("system_admin", __name__)
@@ -148,6 +149,25 @@ def update_sport(sport_id):
         cursor.close()
         
         return jsonify({"message": "Sport updated successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@system_admin.route("/sports/<int:sport_id>", methods=["DELETE"])
+def delete_sport(sport_id):
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT sport_id FROM Sports WHERE sport_id = %s", (sport_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Sport not found"}), 404
+        
+        cursor.execute("DELETE FROM Sports WHERE sport_id = %s", (sport_id,))
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Sport deleted successfully"}), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -457,6 +477,25 @@ def update_league(league_id):
         cursor.close()
         
         return jsonify({"message": "League updated successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@system_admin.route("/leagues/<int:league_id>", methods=["DELETE"])
+def delete_league(league_id):
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT league_id FROM Leagues WHERE league_id = %s", (league_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "League not found"}), 404
+        
+        cursor.execute("DELETE FROM Leagues WHERE league_id = %s", (league_id,))
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "League deleted successfully"}), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1219,11 +1258,16 @@ def get_player(player_id):
 
 @system_admin.route("/players", methods=["POST"])
 def create_player():
+    cursor = None
     try:
         data = request.get_json()
         
         if "first_name" not in data or "last_name" not in data or "email" not in data:
             return jsonify({"error": "Missing required fields: first_name, last_name, email"}), 400
+        
+        # Validate email contains @northeastern.edu
+        if "@northeastern.edu" not in data["email"]:
+            return jsonify({"error": "Email must be a valid Northeastern email address (@northeastern.edu)"}), 400
         
         cursor = db.get_db().cursor()
         
@@ -1247,12 +1291,26 @@ def create_player():
             "message": "Player created successfully",
             "player_id": player_id
         }), 201
+    except pymysql.err.IntegrityError as e:
+        # Check if it's a duplicate email error (error code 1062)
+        if cursor:
+            cursor.close()
+        if e.args[0] == 1062 and "email" in str(e).lower():
+            return jsonify({"error": f"A player with email '{data.get('email', '')}' already exists. Please use a different email address."}), 400
+        return jsonify({"error": "Database integrity error. Please check your input."}), 400
     except Error as e:
+        if cursor:
+            cursor.close()
         return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        if cursor:
+            cursor.close()
+        return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
 
 @system_admin.route("/players/<int:player_id>", methods=["PUT"])
 def update_player(player_id):
+    cursor = None
     try:
         data = request.get_json()
         
@@ -1262,6 +1320,11 @@ def update_player(player_id):
         if not cursor.fetchone():
             cursor.close()
             return jsonify({"error": "Player not found"}), 404
+        
+        # Validate email contains @northeastern.edu if email is being updated
+        if "email" in data and "@northeastern.edu" not in data["email"]:
+            cursor.close()
+            return jsonify({"error": "Email must be a valid Northeastern email address (@northeastern.edu)"}), 400
         
         update_fields = []
         params = []
@@ -1299,8 +1362,21 @@ def update_player(player_id):
         cursor.close()
         
         return jsonify({"message": "Player updated successfully"}), 200
+    except pymysql.err.IntegrityError as e:
+        # Check if it's a duplicate email error (error code 1062)
+        if cursor:
+            cursor.close()
+        if e.args[0] == 1062 and "email" in str(e).lower():
+            return jsonify({"error": f"A player with email '{data.get('email', '')}' already exists. Please use a different email address."}), 400
+        return jsonify({"error": "Database integrity error. Please check your input."}), 400
     except Error as e:
+        if cursor:
+            cursor.close()
         return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        if cursor:
+            cursor.close()
+        return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
 
 @system_admin.route("/players/<int:player_id>", methods=["DELETE"])
@@ -1773,12 +1849,12 @@ def get_all_games():
                t2.name AS away_team, t2.team_id AS away_team_id,
                l.name AS league_name
         FROM Games g
-        JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.is_home_team = TRUE
-        JOIN Teams t1 ON tg1.team_id = t1.team_id
-        JOIN Teams_Games tg2 ON g.game_id = tg2.game_id AND tg2.is_home_team = FALSE
-        JOIN Teams t2 ON tg2.team_id = t2.team_id
+        LEFT JOIN Teams_Games tg1 ON g.game_id = tg1.game_id AND tg1.is_home_team = TRUE
+        LEFT JOIN Teams t1 ON tg1.team_id = t1.team_id
+        LEFT JOIN Teams_Games tg2 ON g.game_id = tg2.game_id AND tg2.is_home_team = FALSE
+        LEFT JOIN Teams t2 ON tg2.team_id = t2.team_id
         JOIN Leagues l ON g.league_played = l.league_id
-        WHERE 1=1
+        WHERE t1.team_id IS NOT NULL AND t2.team_id IS NOT NULL
         """
         
         params = []
@@ -1852,8 +1928,8 @@ def create_game():
     try:
         data = request.get_json()
         
-        if "league_played" not in data or "home_team_id" not in data or "away_team_id" not in data:
-            return jsonify({"error": "Missing required fields: league_played, home_team_id, away_team_id"}), 400
+        if "league_played" not in data:
+            return jsonify({"error": "Missing required field: league_played"}), 400
         
         cursor = db.get_db().cursor()
         
@@ -1878,15 +1954,18 @@ def create_game():
         
         game_id = cursor.lastrowid
         
-        cursor.execute("""
-            INSERT INTO Teams_Games (team_id, game_id, is_home_team)
-            VALUES (%s, %s, TRUE)
-        """, (data["home_team_id"], game_id))
+        # Only add teams if they are provided (optional)
+        if "home_team_id" in data and data["home_team_id"]:
+            cursor.execute("""
+                INSERT INTO Teams_Games (team_id, game_id, is_home_team)
+                VALUES (%s, %s, TRUE)
+            """, (data["home_team_id"], game_id))
         
-        cursor.execute("""
-            INSERT INTO Teams_Games (team_id, game_id, is_home_team)
-            VALUES (%s, %s, FALSE)
-        """, (data["away_team_id"], game_id))
+        if "away_team_id" in data and data["away_team_id"]:
+            cursor.execute("""
+                INSERT INTO Teams_Games (team_id, game_id, is_home_team)
+                VALUES (%s, %s, FALSE)
+            """, (data["away_team_id"], game_id))
         
         db.get_db().commit()
         cursor.close()
