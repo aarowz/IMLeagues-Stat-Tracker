@@ -146,25 +146,46 @@ with tab2:
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.write("Record champions for leagues that haven't been assigned one yet.")
+        st.write("Record league champions at the end of each season.")
     with col2:
         if st.button("🔄 Refresh", key="refresh_champions"):
             st.rerun()
     
     try:
-        # Fetch only leagues without champions (ongoing leagues)
-        leagues_response = requests.get(f"{API_BASE}/leagues/without-champions")
+        # Fetch all leagues
+        leagues_response = requests.get(f"{API_BASE}/leagues")
         if leagues_response.status_code == 200:
             leagues = leagues_response.json()
             
+            # Fetch sports for display
+            sports_response = requests.get(f"{API_BASE}/sports")
+            sports = sports_response.json() if sports_response.status_code == 200 else []
+            sport_map = {s['sport_id']: s['name'] for s in sports}
+            
             if leagues:
-                # Sort leagues by year (desc), then name
+                # Sort leagues by year (desc), then name (like Data Management page)
                 sorted_leagues = sorted(leagues, key=lambda x: (-x.get('year', 0), x.get('name', '').lower()))
                 
-                # Select league (only shows leagues without champions)
-                league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({l.get('sport_name', 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
-                selected_league_display = st.selectbox("Select League (without champion)", options=list(league_options.keys()))
+                # Select league
+                league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({sport_map.get(l.get('sport_played'), 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
+                selected_league_display = st.selectbox("Select League", options=list(league_options.keys()))
                 selected_league_id = league_options[selected_league_display]
+                
+                # Get league's existing champions
+                existing_champions_response = requests.get(f"{API_BASE}/leagues/{selected_league_id}/champions")
+                existing_champions = []
+                if existing_champions_response.status_code == 200:
+                    existing_champions = existing_champions_response.json()
+                
+                # Display existing champions
+                if existing_champions:
+                    st.write("**Previous Champions:**")
+                    champions_df = pd.DataFrame(existing_champions)
+                    display_cols = ['year', 'winner_team_name']
+                    available_cols = [col for col in display_cols if col in champions_df.columns]
+                    st.dataframe(champions_df[available_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.info("This league has no recorded champions yet.")
                 
                 # Get teams in this league
                 teams_response = requests.get(f"{API_BASE}/leagues/{selected_league_id}/teams")
@@ -176,9 +197,9 @@ with tab2:
                     # Sort teams by name
                     sorted_teams = sorted(teams, key=lambda x: x.get('team_name', '').lower())
                     
-                    # Assign champion form
+                    # Assign new champion
                     st.divider()
-                    st.subheader("Record Champion")
+                    st.subheader("Record New Champion")
                     with st.form("assign_champion"):
                         team_options = {f"{t.get('team_name', 'Unknown Team')} (Wins: {t.get('wins', 0)}, Losses: {t.get('losses', 0)}) (ID: {t['team_id']})": t['team_id'] for t in sorted_teams}
                         winner_team = st.selectbox("Champion Team *", options=list(team_options.keys()))
@@ -198,7 +219,7 @@ with tab2:
                 else:
                     st.warning("No teams found in this league. Please add teams to the league first.")
             else:
-                st.success("🎉 All leagues have champions assigned!")
+                st.info("No leagues found.")
         else:
             st.error(f"Error loading leagues: {leagues_response.json().get('error', 'Unknown error')}")
     except Exception as e:
