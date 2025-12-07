@@ -42,3 +42,9 @@ insert into Player_Awards (recipient, award_type, year, description) values (40,
 insert into Player_Awards (recipient, award_type, year, description) values (41, 'Best Defender', 2020, 'Defensive player of the year');
 insert into Player_Awards (recipient, award_type, year, description) values (42, 'Most Improved', 2020, 'Remarkable improvement');
 insert into Player_Awards (recipient, award_type, year, description) values (43, 'Rookie of the Year', 2020, 'Exceptional rookie campaign');
+insert into Player_Awards (recipient, award_type, year, description) values (44, 'Sixth Man of the Year', 2026, 'Outstanding performance off the bench');
+insert into Player_Awards (recipient, award_type, year, description) values (45, 'Clutch Performer', 2026, 'Excellence in high-pressure situations');
+insert into Player_Awards (recipient, award_type, year, description) values (46, 'Team Captain Award', 2026, 'Outstanding leadership and dedication');
+insert into Player_Awards (recipient, award_type, year, description) values (47, 'Comeback Player', 2026, 'Remarkable return from injury');
+insert into Player_Awards (recipient, award_type, year, description) values (48, 'All-Star Selection', 2026, 'Selected to represent league in all-star game');
+insert into Player_Awards (recipient, award_type, year, description) values (49, 'Fan Favorite', 2026, 'Most popular player voted by fans');

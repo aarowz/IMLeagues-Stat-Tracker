@@ -24,3 +24,8 @@ insert into Leagues (name, sport_played, league_start, league_end, semester, yea
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Volleyball League', 3, '2025-05-18', '2025-09-24', 'Summer', 2029);
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Volleyball League', 3, '2025-03-07', '2025-04-28', 'Summer', 2030);
 insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Soccer League', 2, '2025-03-24', '2025-09-20', 'Summer', 2030);
+insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Winter Basketball League', 1, '2025-12-01', '2026-02-28', 'Winter', 2026);
+insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Fall Volleyball League', 3, '2025-09-10', '2025-12-20', 'Fall', 2025);
+insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Spring Basketball League', 1, '2026-03-15', '2026-05-30', 'Spring', 2026);
+insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Summer Volleyball League', 3, '2026-06-01', '2026-08-15', 'Summer', 2026);
+insert into Leagues (name, sport_played, league_start, league_end, semester, year) values ('Winter Soccer League', 2, '2025-11-15', '2026-01-31', 'Winter', 2026);
