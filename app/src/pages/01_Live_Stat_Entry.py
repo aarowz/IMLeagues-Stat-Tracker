@@ -141,25 +141,41 @@ with col_left:
     # Player selection
     all_players_list = home_players + away_players
     
+    # Fallback: If no players in game lineup, fetch from teams
+    if not players and home_team_id and away_team_id:
+        try:
+            player_api_base = "http://web-api:4000/player"
+            home_team_players_response = requests.get(f"{player_api_base}/teams/{home_team_id}/players")
+            away_team_players_response = requests.get(f"{player_api_base}/teams/{away_team_id}/players")
+            
+            home_team_players = home_team_players_response.json() if home_team_players_response.status_code == 200 else []
+            away_team_players = away_team_players_response.json() if away_team_players_response.status_code == 200 else []
+            
+            # Combine and add team_id to each player
+            players = []
+            for p in home_team_players:
+                p['team_id'] = home_team_id
+                players.append(p)
+            for p in away_team_players:
+                p['team_id'] = away_team_id
+                players.append(p)
+            
+            # Re-filter by team
+            home_players = [p for p in players if home_team_id and p.get('team_id') == home_team_id]
+            away_players = [p for p in players if away_team_id and p.get('team_id') == away_team_id]
+            all_players_list = home_players + away_players
+        except Exception as e:
+            pass  # If fallback fails, keep players as empty list
+    
     # Fallback: if team filtering didn't work, use all players
     if not all_players_list and players:
         all_players_list = players
     
-    # DEBUG: Show what we have (TEMPORARY - will remove after debugging)
-    with st.expander("🔍 Debug Info (Click to expand)"):
-        st.write(f"**Game ID:** {game_id}")
-        st.write(f"**Home Team ID:** {home_team_id}")
-        st.write(f"**Away Team ID:** {away_team_id}")
-        st.write(f"**Total players from API:** {len(players)}")
-        st.write(f"**Home players (filtered):** {len(home_players)}")
-        st.write(f"**Away players (filtered):** {len(away_players)}")
-        st.write(f"**All players list:** {len(all_players_list)}")
-        if players:
-            st.write("**Sample player data:**")
-            for p in players[:3]:
-                st.write(f"- {p.get('first_name')} {p.get('last_name')} (Team ID: {p.get('team_id')})")
-        else:
-            st.write("**No players returned from API**")
+    # Check if we have any players
+    if not all_players_list:
+        st.warning("⚠️ No players found for this game. Players need to be added to the game lineup before stats can be entered.")
+        st.info("💡 **Tip:** Players must be assigned to this game's lineup (via Players_Games table) before stat entry is possible.")
+        st.stop()
     
     player_options = {None: "Select Player..."}
     for p in all_players_list:
