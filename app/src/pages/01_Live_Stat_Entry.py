@@ -76,8 +76,8 @@ except Exception as e:
 # Split players by team
 home_team_id = game.get('home_team_id')
 away_team_id = game.get('away_team_id')
-home_players = [p for p in players if home_team_id and p['team_id'] == home_team_id]
-away_players = [p for p in players if away_team_id and p['team_id'] == away_team_id]
+home_players = [p for p in players if home_team_id and p.get('team_id') == home_team_id]
+away_players = [p for p in players if away_team_id and p.get('team_id') == away_team_id]
 
 # Display game header with live score
 col1, col2, col3 = st.columns([2, 1, 2])
@@ -140,9 +140,30 @@ with col_left:
     
     # Player selection
     all_players_list = home_players + away_players
+    
+    # Fallback: if team filtering didn't work, use all players
+    if not all_players_list and players:
+        all_players_list = players
+    
+    # DEBUG: Show what we have (TEMPORARY - will remove after debugging)
+    with st.expander("🔍 Debug Info (Click to expand)"):
+        st.write(f"**Game ID:** {game_id}")
+        st.write(f"**Home Team ID:** {home_team_id}")
+        st.write(f"**Away Team ID:** {away_team_id}")
+        st.write(f"**Total players from API:** {len(players)}")
+        st.write(f"**Home players (filtered):** {len(home_players)}")
+        st.write(f"**Away players (filtered):** {len(away_players)}")
+        st.write(f"**All players list:** {len(all_players_list)}")
+        if players:
+            st.write("**Sample player data:**")
+            for p in players[:3]:
+                st.write(f"- {p.get('first_name')} {p.get('last_name')} (Team ID: {p.get('team_id')})")
+        else:
+            st.write("**No players returned from API**")
+    
     player_options = {None: "Select Player..."}
     for p in all_players_list:
-        team_label = "🏠" if p['team_id'] == game['home_team_id'] else "✈️"
+        team_label = "🏠" if p.get('team_id') == game.get('home_team_id') else "✈️"
         player_options[p['player_id']] = f"{team_label} {p['first_name']} {p['last_name']}"
     
     selected_player_id = st.selectbox(

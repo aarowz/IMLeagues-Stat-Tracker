@@ -13,6 +13,9 @@ st.write("View all games assigned to you as a stat keeper.")
 STAT_KEEPER_ID = 1
 API_BASE = "http://web-api:4000/stat-keeper"
 
+# Get today's date for display calculations
+today = datetime.now().date()
+
 # Fetch assigned games with filtering done at API/database level
 try:
     upcoming_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=true")
