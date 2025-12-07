@@ -47,8 +47,8 @@ if not all_games:
     st.info("You have no assigned games yet.")
     st.stop()
 
-# Tabs for upcoming and past games
-tab1, tab2 = st.tabs(["📅 Upcoming Games", "📊 Past Games"])
+# Tabs for upcoming and finalized games
+tab1, tab2 = st.tabs(["📅 Upcoming Games", "✅ Finalized Games"])
 
 with tab1:
     st.subheader("Upcoming Games")
@@ -122,7 +122,8 @@ with tab1:
         st.info("No upcoming games assigned.")
 
 with tab2:
-    st.subheader("Past Games")
+    st.subheader("Finalized Games")
+    st.caption("Games that have been finalized and are available for viewing and analysis.")
     
     if past_games:
         # Add dropdown to limit number of games shown
@@ -203,7 +204,7 @@ with tab2:
                 
                 st.divider()
     else:
-        st.info("No past games recorded.")
+        st.info("No finalized games yet. Finalize games from the 'Game Finalization' page to make them available here.")
 
 # Summary statistics
 st.divider()
@@ -218,9 +219,12 @@ with col2:
     st.metric("Upcoming", len(upcoming_games))
 
 with col3:
-    st.metric("Past", len(past_games))
+    st.metric("Finalized", len(past_games))
 
 with col4:
-    finalized_count = sum(1 for g in past_games if g.get('home_score') is not None and g.get('away_score') is not None)
-    st.metric("Finalized", finalized_count)
+    # Count games that need finalization (have teams but no scores)
+    needs_finalization = sum(1 for g in upcoming_games + past_games 
+                             if g.get('home_team') and g.get('away_team') 
+                             and (g.get('home_score') is None or g.get('away_score') is None))
+    st.metric("Need Finalization", needs_finalization)
 

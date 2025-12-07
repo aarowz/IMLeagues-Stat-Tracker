@@ -40,8 +40,9 @@ def get_stat_keeper_games(keeper_id):
             cursor.close()
             return jsonify({"error": "Stat keeper not found"}), 404
         
-        # Get upcoming_only parameter from query string
+        # Get parameters from query string
         upcoming_only = request.args.get("upcoming_only", "false").lower() == "true"
+        all_games = request.args.get("all", "false").lower() == "true"
         
         query = """
         SELECT g.game_id, g.date_played, g.start_time, g.location,
@@ -63,7 +64,15 @@ def get_stat_keeper_games(keeper_id):
                 WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE 
                 LIMIT 1) AS away_team_id,
                l.name AS league_name, s.name AS sport_name,
-               gk.assignment_date
+               gk.assignment_date,
+               CASE 
+                   WHEN (SELECT t.team_id FROM Teams_Games tg 
+                         JOIN Teams t ON tg.team_id = t.team_id 
+                         WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) IS NOT NULL
+                   AND (SELECT t.team_id FROM Teams_Games tg 
+                        JOIN Teams t ON tg.team_id = t.team_id 
+                        WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) IS NOT NULL
+                   THEN 1 ELSE 0 END AS has_both_teams
         FROM Games_Keepers gk
         JOIN Games g ON gk.game_id = g.game_id
         JOIN Leagues l ON g.league_played = l.league_id
@@ -73,12 +82,24 @@ def get_stat_keeper_games(keeper_id):
         
         params = [keeper_id]
         
-        # Add date filtering and ordering based on upcoming_only parameter
-        if upcoming_only:
-            query += " AND g.date_played >= CURDATE()"
+        # Add filtering based on parameters
+        if all_games:
+            # Return all games, no filtering
+            query += " ORDER BY has_both_teams DESC, g.date_played DESC, g.start_time DESC"
+        elif upcoming_only:
+            # Upcoming: future games that haven't been finalized
+            query += " AND g.date_played > CURDATE() AND (g.home_score IS NULL OR g.away_score IS NULL)"
             query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
         else:
-            query += " AND g.date_played < CURDATE()"
+            # Past: finalized games (regardless of date) - these are the official records
+            # Only include games that have both teams assigned
+            query += """ AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
+                         AND (SELECT t.team_id FROM Teams_Games tg 
+                              JOIN Teams t ON tg.team_id = t.team_id 
+                              WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) IS NOT NULL
+                         AND (SELECT t.team_id FROM Teams_Games tg 
+                              JOIN Teams t ON tg.team_id = t.team_id 
+                              WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) IS NOT NULL"""
             query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
         
         cursor.execute(query, params)
@@ -364,11 +385,26 @@ def update_game(game_id):
         
         cursor = db.get_db().cursor()
         
-        # Check if game exists
-        cursor.execute("SELECT game_id FROM Games WHERE game_id = %s", (game_id,))
-        if not cursor.fetchone():
+        # Check if game exists and get current scores and team IDs
+        cursor.execute("""
+            SELECT g.home_score, g.away_score,
+                   (SELECT tg.team_id FROM Teams_Games tg 
+                    WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) AS home_team_id,
+                   (SELECT tg.team_id FROM Teams_Games tg 
+                    WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) AS away_team_id
+            FROM Games g
+            WHERE g.game_id = %s
+        """, (game_id,))
+        
+        game_data = cursor.fetchone()
+        if not game_data:
             cursor.close()
             return jsonify({"error": "Game not found"}), 404
+        
+        old_home_score = game_data.get('home_score')
+        old_away_score = game_data.get('away_score')
+        home_team_id = game_data.get('home_team_id')
+        away_team_id = game_data.get('away_team_id')
         
         # Build update query dynamically based on provided fields
         update_fields = []
@@ -407,6 +443,34 @@ def update_game(game_id):
         """
         
         cursor.execute(update_query, params)
+        
+        # Update team wins/losses if scores are being updated and teams exist
+        if ("home_score" in data or "away_score" in data) and home_team_id and away_team_id:
+            new_home_score = data.get("home_score", old_home_score)
+            new_away_score = data.get("away_score", old_away_score)
+            
+            # Only proceed if new scores are valid
+            if new_home_score is not None and new_away_score is not None:
+                # If old scores existed, reverse the old result first
+                if old_home_score is not None and old_away_score is not None:
+                    # Reverse old result
+                    if old_home_score > old_away_score:
+                        cursor.execute("UPDATE Teams SET wins = wins - 1 WHERE team_id = %s", (home_team_id,))
+                        cursor.execute("UPDATE Teams SET losses = losses - 1 WHERE team_id = %s", (away_team_id,))
+                    elif old_away_score > old_home_score:
+                        cursor.execute("UPDATE Teams SET wins = wins - 1 WHERE team_id = %s", (away_team_id,))
+                        cursor.execute("UPDATE Teams SET losses = losses - 1 WHERE team_id = %s", (home_team_id,))
+                    # If old was a tie, nothing to reverse
+                
+                # Apply new result
+                if new_home_score > new_away_score:
+                    cursor.execute("UPDATE Teams SET wins = wins + 1 WHERE team_id = %s", (home_team_id,))
+                    cursor.execute("UPDATE Teams SET losses = losses + 1 WHERE team_id = %s", (away_team_id,))
+                elif new_away_score > new_home_score:
+                    cursor.execute("UPDATE Teams SET wins = wins + 1 WHERE team_id = %s", (away_team_id,))
+                    cursor.execute("UPDATE Teams SET losses = losses + 1 WHERE team_id = %s", (home_team_id,))
+                # If tie, no wins/losses are updated
+        
         db.get_db().commit()
         cursor.close()
         

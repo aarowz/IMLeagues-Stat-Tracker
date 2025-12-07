@@ -179,8 +179,7 @@ with col_left:
     
     player_options = {None: "Select Player..."}
     for p in all_players_list:
-        team_label = "🏠" if p.get('team_id') == game.get('home_team_id') else "✈️"
-        player_options[p['player_id']] = f"{team_label} {p['first_name']} {p['last_name']}"
+        player_options[p['player_id']] = f"{p['first_name']} {p['last_name']} (ID: {p['player_id']})"
     
     selected_player_id = st.selectbox(
         "Select Player",
