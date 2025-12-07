@@ -286,8 +286,23 @@ with col_left:
             # Edit form
             if st.session_state.get(f"editing_{event['event_id']}", False):
                 with st.form(f"edit_form_{event['event_id']}"):
+                    player_options = {None: "Select Player..."}
+                    for p in all_players_list:
+                        team_label = "🏠" if p.get('team_id') == game.get('home_team_id') else "✈️"
+                        player_options[p['player_id']] = f"{team_label} {p['first_name']} {p['last_name']}"
+                    current_player_id = event.get('performed_by')
+                    player_keys = list(player_options.keys())
+                    default_index = player_keys.index(current_player_id) if current_player_id in player_keys else 0
+                    selected_player_id = st.selectbox(
+                        "Player",
+                        options=player_keys,
+                        format_func=lambda x: player_options.get(x, "Select Player..."),
+                        index=default_index,
+                        key=f"edit_player_{event['event_id']}"
+                    )
+                    
                     new_description = st.text_input(
-                        "New Description",
+                        "Description",
                         value=event['description'],
                         key=f"new_desc_{event['event_id']}"
                     )
@@ -296,6 +311,8 @@ with col_left:
                         if st.form_submit_button("Update"):
                             try:
                                 update_data = {"description": new_description}
+                                if selected_player_id:
+                                    update_data["performed_by"] = selected_player_id
                                 update_response = requests.put(
                                     f"{API_BASE}/games/{game_id}/stat-events/{event['event_id']}",
                                     json=update_data
