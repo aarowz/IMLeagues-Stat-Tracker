@@ -10,12 +10,12 @@ SideBarLinks()
 st.set_page_config(layout='wide')
 
 st.title("📈 System Analytics & Configuration")
-st.write("View system usage statistics, add new sports/leagues, and configure league rules.")
+st.write("View system usage statistics and configure league rules.")
 
 API_BASE = "http://web-api:4000/system-admin"
 
 # Create tabs for different functionalities
-tab1, tab2, tab3 = st.tabs(["📊 Analytics Dashboard", "➕ Add Sports/Leagues", "⚙️ League Rules"])
+tab1, tab2 = st.tabs(["📊 Analytics Dashboard", "⚙️ League Rules"])
 
 # ==================== ANALYTICS DASHBOARD TAB ====================
 with tab1:
@@ -123,108 +123,8 @@ with tab1:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== ADD SPORTS/LEAGUES TAB ====================
-with tab2:
-    st.subheader("Add New Sports and Leagues")
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.write("Expand the application by adding new sports and leagues.")
-    with col2:
-        if st.button("🔄 Refresh", key="refresh_add"):
-            st.rerun()
-    
-    # Add New Sport Section
-    st.divider()
-    st.subheader("Add New Sport")
-    
-    try:
-        # Fetch existing sports
-        sports_response = requests.get(f"{API_BASE}/sports")
-        existing_sports = []
-        if sports_response.status_code == 200:
-            existing_sports = sports_response.json()
-        
-        with st.form("add_sport_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                new_sport_name = st.text_input("Sport Name *", placeholder="e.g., Tennis, Baseball")
-            with col2:
-                new_sport_description = st.text_area("Description", placeholder="Brief description of the sport")
-            
-            if st.form_submit_button("Add Sport"):
-                if new_sport_name:
-                    sport_data = {"name": new_sport_name}
-                    if new_sport_description:
-                        sport_data["description"] = new_sport_description
-                    
-                    create_response = requests.post(f"{API_BASE}/sports", json=sport_data)
-                    if create_response.status_code == 201:
-                        st.success("Sport added successfully!")
-                        st.rerun()
-                    else:
-                        st.error(f"Error: {create_response.json().get('error', 'Unknown error')}")
-                else:
-                    st.error("Sport name is required")
-        
-        # Display existing sports
-        if existing_sports:
-            st.write("**Existing Sports:**")
-            sports_df = pd.DataFrame(existing_sports)
-            st.dataframe(sports_df, use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-    
-    # Add New League Section
-    st.divider()
-    st.subheader("Add New League")
-    
-    try:
-        # Fetch sports for league creation
-        sports_response = requests.get(f"{API_BASE}/sports")
-        sports = sports_response.json() if sports_response.status_code == 200 else []
-        
-        if sports:
-            with st.form("add_league_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_league_name = st.text_input("League Name *", placeholder="e.g., Spring Basketball League")
-                    new_league_sport = st.selectbox("Sport *", options=[s['sport_id'] for s in sports],
-                                                   format_func=lambda x: next((f"{s['name']} (ID: {s['sport_id']})" for s in sports if s['sport_id'] == x), f"Unknown (ID: {x})"))
-                    new_league_max_teams = st.number_input("Max Teams", min_value=0, value=0)
-                with col2:
-                    new_league_semester = st.selectbox("Semester", options=["Fall", "Spring", "Summer", "Winter"])
-                    new_league_year = st.number_input("Year", min_value=2020, max_value=2030, value=datetime.now().year)
-                    new_league_start = st.date_input("Start Date", value=datetime.now().date())
-                    new_league_end = st.date_input("End Date", value=datetime.now().date())
-                
-                if st.form_submit_button("Add League"):
-                    if new_league_name:
-                        league_data = {
-                            "name": new_league_name,
-                            "sport_played": new_league_sport,
-                            "semester": new_league_semester,
-                            "year": int(new_league_year),
-                            "max_teams": int(new_league_max_teams) if new_league_max_teams else None,
-                            "league_start": new_league_start.isoformat(),
-                            "league_end": new_league_end.isoformat()
-                        }
-                        
-                        create_response = requests.post(f"{API_BASE}/leagues", json=league_data)
-                        if create_response.status_code == 201:
-                            st.success("League added successfully!")
-                            st.rerun()
-                        else:
-                            st.error(f"Error: {create_response.json().get('error', 'Unknown error')}")
-                    else:
-                        st.error("League name is required")
-        else:
-            st.warning("No sports available. Please add a sport first.")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-
 # ==================== LEAGUE RULES TAB ====================
-with tab3:
+with tab2:
     st.subheader("Configure League Rules")
     
     col1, col2 = st.columns([3, 1])
@@ -256,60 +156,74 @@ with tab3:
                 if existing_rules:
                     st.write("**Current Rules:**")
                     rules_df = pd.DataFrame(existing_rules)
-                    display_cols = ['team_size', 'league_size', 'season_length', 'game_length', 'description']
+                    display_cols = ['rules_id', 'team_size', 'league_size', 'season_length', 'game_length', 'description']
                     display_cols = [c for c in display_cols if c in rules_df.columns]
                     st.dataframe(rules_df[display_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.info("No rules configured for this sport yet.")
+                
+                # Add Rules section (always visible)
+                st.divider()
+                st.subheader("Add New Rules")
+                with st.form("create_rules_form"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        team_size = st.number_input("Team Size *", min_value=1, value=5, key="add_team_size")
+                        league_size = st.number_input("League Size (Max Teams) *", min_value=1, value=10, key="add_league_size")
+                    with col2:
+                        season_length = st.number_input("Season Length (Weeks) *", min_value=1, value=10, key="add_season_length")
+                        game_length = st.number_input("Game Length (Minutes) *", min_value=1, value=40, key="add_game_length")
                     
+                    description = st.text_area("Description", placeholder="e.g., Basketball: 5v5, 10 week season, 40 min games", key="add_description")
+                    
+                    if st.form_submit_button("Add Rules"):
+                        rules_data = {
+                            "team_size": int(team_size),
+                            "league_size": int(league_size),
+                            "season_length": int(season_length),
+                            "game_length": int(game_length),
+                            "description": description
+                        }
+                        
+                        create_response = requests.post(f"{API_BASE}/sports/{selected_sport_id}/rules", json=rules_data)
+                        if create_response.status_code == 201:
+                            st.success("Rules added successfully!")
+                            st.rerun()
+                        else:
+                            try:
+                                error_msg = create_response.json().get('error', f'HTTP {create_response.status_code}')
+                            except:
+                                error_msg = f'HTTP {create_response.status_code}: {create_response.text[:200]}'
+                            st.error(f"Error: {error_msg}")
+                
+                # Update and Delete sections (only show if rules exist)
+                if existing_rules:
                     # Update rules section
                     st.divider()
                     st.subheader("Update Rules")
-                    if existing_rules:
-                        current_rule = existing_rules[0]  # Use first rule if multiple exist
-                        
-                        with st.form("update_rules_form"):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                team_size = st.number_input("Team Size", min_value=1, value=current_rule.get('team_size') or 5)
-                                league_size = st.number_input("League Size (Max Teams)", min_value=1, value=current_rule.get('league_size') or 10)
-                            with col2:
-                                season_length = st.number_input("Season Length (Weeks)", min_value=1, value=current_rule.get('season_length') or 10)
-                                game_length = st.number_input("Game Length (Minutes)", min_value=1, value=current_rule.get('game_length') or 40)
-                            
-                            description = st.text_area("Description", value=current_rule.get('description', ''))
-                            
-                            if st.form_submit_button("Update Rules"):
-                                rules_data = {
-                                    "team_size": int(team_size),
-                                    "league_size": int(league_size),
-                                    "season_length": int(season_length),
-                                    "game_length": int(game_length),
-                                    "description": description
-                                }
-                                
-                                update_response = requests.put(f"{API_BASE}/sports/{selected_sport_id}/rules", json=rules_data)
-                                if update_response.status_code == 200:
-                                    st.success("Rules updated successfully!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"Error: {update_response.json().get('error', 'Unknown error')}")
-                else:
-                    st.info("No rules configured for this sport yet.")
                     
-                    # Create rules section
-                    st.divider()
-                    st.subheader("Create Rules")
-                    with st.form("create_rules_form"):
+                    # If multiple rules exist, let user select which one to update
+                    if len(existing_rules) > 1:
+                        rule_options = {f"Rules ID: {r['rules_id']} (Team Size: {r.get('team_size', 'N/A')}, League Size: {r.get('league_size', 'N/A')})": r['rules_id'] for r in existing_rules}
+                        selected_rule_display = st.selectbox("Select Rules to Update", options=list(rule_options.keys()))
+                        selected_rules_id = rule_options[selected_rule_display]
+                        current_rule = next((r for r in existing_rules if r['rules_id'] == selected_rules_id), existing_rules[0])
+                    else:
+                        current_rule = existing_rules[0]
+                        selected_rules_id = current_rule['rules_id']
+                    
+                    with st.form(f"update_rules_form_{selected_rules_id}"):
                         col1, col2 = st.columns(2)
                         with col1:
-                            team_size = st.number_input("Team Size *", min_value=1, value=5)
-                            league_size = st.number_input("League Size (Max Teams) *", min_value=1, value=10)
+                            team_size = st.number_input("Team Size", min_value=1, value=current_rule.get('team_size') or 5, key=f"update_team_size_{selected_rules_id}")
+                            league_size = st.number_input("League Size (Max Teams)", min_value=1, value=current_rule.get('league_size') or 10, key=f"update_league_size_{selected_rules_id}")
                         with col2:
-                            season_length = st.number_input("Season Length (Weeks) *", min_value=1, value=10)
-                            game_length = st.number_input("Game Length (Minutes) *", min_value=1, value=40)
+                            season_length = st.number_input("Season Length (Weeks)", min_value=1, value=current_rule.get('season_length') or 10, key=f"update_season_length_{selected_rules_id}")
+                            game_length = st.number_input("Game Length (Minutes)", min_value=1, value=current_rule.get('game_length') or 40, key=f"update_game_length_{selected_rules_id}")
                         
-                        description = st.text_area("Description", placeholder="e.g., Basketball: 5v5, 10 week season, 40 min games")
+                        description = st.text_area("Description", value=current_rule.get('description', ''), key=f"update_description_{selected_rules_id}")
                         
-                        if st.form_submit_button("Create Rules"):
+                        if st.form_submit_button("Update Rules"):
                             rules_data = {
                                 "team_size": int(team_size),
                                 "league_size": int(league_size),
@@ -318,12 +232,37 @@ with tab3:
                                 "description": description
                             }
                             
-                            create_response = requests.post(f"{API_BASE}/sports/{selected_sport_id}/rules", json=rules_data)
-                            if create_response.status_code == 201:
-                                st.success("Rules created successfully!")
+                            update_response = requests.put(f"{API_BASE}/sports/{selected_sport_id}/rules", json=rules_data)
+                            if update_response.status_code == 200:
+                                st.success("Rules updated successfully!")
                                 st.rerun()
                             else:
-                                st.error(f"Error: {create_response.json().get('error', 'Unknown error')}")
+                                try:
+                                    error_msg = update_response.json().get('error', f'HTTP {update_response.status_code}')
+                                except:
+                                    error_msg = f'HTTP {update_response.status_code}: {update_response.text[:200]}'
+                                st.error(f"Error: {error_msg}")
+                    
+                    # Delete rules section
+                    st.divider()
+                    st.subheader("Delete Rules")
+                    
+                    rule_delete_options = {f"Rules ID: {r['rules_id']} (Team Size: {r.get('team_size', 'N/A')}, League Size: {r.get('league_size', 'N/A')})": r['rules_id'] for r in existing_rules}
+                    rule_to_delete_display = st.selectbox("Select Rules to Delete", options=list(rule_delete_options.keys()), key="delete_rule_select")
+                    rule_to_delete_id = rule_delete_options[rule_to_delete_display]
+                    
+                    if st.button("🗑️ Delete Rules", type="secondary", key="delete_rules_button"):
+                        delete_response = requests.delete(f"{API_BASE}/sports/{selected_sport_id}/rules", 
+                                                        json={"rules_id": rule_to_delete_id})
+                        if delete_response.status_code == 200:
+                            st.success("Rules deleted successfully!")
+                            st.rerun()
+                        else:
+                            try:
+                                error_msg = delete_response.json().get('error', f'HTTP {delete_response.status_code}')
+                            except:
+                                error_msg = f'HTTP {delete_response.status_code}: {delete_response.text[:200]}'
+                            st.error(f"Error: {error_msg}")
             else:
                 st.info("No sports found. Please add a sport first.")
         else:

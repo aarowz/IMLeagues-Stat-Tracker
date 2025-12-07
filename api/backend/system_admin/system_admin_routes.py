@@ -296,6 +296,34 @@ def update_sport_rules(sport_id):
         return jsonify({"error": str(e)}), 500
 
 
+@system_admin.route("/sports/<int:sport_id>/rules", methods=["DELETE"])
+def delete_sport_rules(sport_id):
+    try:
+        data = request.get_json()
+        
+        if "rules_id" not in data:
+            return jsonify({"error": "Missing required field: rules_id"}), 400
+        
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("""
+            SELECT rules_id FROM Rules 
+            WHERE rules_id = %s AND sports_id = %s
+        """, (data["rules_id"], sport_id))
+        
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Rules not found for this sport"}), 404
+        
+        cursor.execute("DELETE FROM Rules WHERE rules_id = %s", (data["rules_id"],))
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Rules deleted successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @system_admin.route("/leagues", methods=["GET"])
 def get_all_leagues():
     try:
@@ -725,6 +753,34 @@ def create_league_champion(league_id):
             "message": "Champion recorded successfully",
             "champion_id": champion_id
         }), 201
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@system_admin.route("/leagues/<int:league_id>/champions", methods=["DELETE"])
+def delete_league_champion(league_id):
+    try:
+        data = request.get_json()
+        
+        if "champion_id" not in data:
+            return jsonify({"error": "Missing required field: champion_id"}), 400
+        
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("""
+            SELECT champion_id FROM Champions 
+            WHERE champion_id = %s AND league_id = %s
+        """, (data["champion_id"], league_id))
+        
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Champion not found for this league"}), 404
+        
+        cursor.execute("DELETE FROM Champions WHERE champion_id = %s", (data["champion_id"],))
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Champion deleted successfully"}), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1748,19 +1804,41 @@ def delete_player_award(player_id):
 
 @system_admin.route("/player-awards", methods=["GET"])
 def get_all_player_awards():
-    """Get all player awards with player names - efficient single query"""
+    """Get all player awards with player names - efficient single query with filtering"""
     try:
         cursor = db.get_db().cursor()
+        
+        # Get filter parameters
+        player_search = request.args.get("player_search", "").strip()
+        award_type_search = request.args.get("award_type_search", "").strip()
+        year_filter = request.args.get("year")
         
         query = """
         SELECT pa.award_id, pa.award_type, pa.year, pa.description,
                p.player_id, p.first_name, p.last_name, p.email
         FROM Player_Awards pa
         JOIN Players p ON pa.recipient = p.player_id
-        ORDER BY pa.year DESC, p.last_name, p.first_name
+        WHERE 1=1
         """
         
-        cursor.execute(query)
+        params = []
+        
+        if player_search:
+            query += " AND (LOWER(p.first_name) LIKE %s OR LOWER(p.last_name) LIKE %s OR LOWER(p.email) LIKE %s)"
+            search_pattern = f"%{player_search.lower()}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        if award_type_search:
+            query += " AND LOWER(pa.award_type) LIKE %s"
+            params.append(f"%{award_type_search.lower()}%")
+        
+        if year_filter:
+            query += " AND pa.year = %s"
+            params.append(int(year_filter))
+        
+        query += " ORDER BY pa.year DESC, p.last_name, p.first_name"
+        
+        cursor.execute(query, params if params else None)
         awards = cursor.fetchall()
         cursor.close()
         
@@ -1777,9 +1855,15 @@ def get_all_player_awards():
 
 @system_admin.route("/champions", methods=["GET"])
 def get_all_champions():
-    """Get all champions with team and league info - efficient single query"""
+    """Get all champions with team and league info - efficient single query with filtering"""
     try:
         cursor = db.get_db().cursor()
+        
+        # Get filter parameters
+        league_search = request.args.get("league_search", "").strip()
+        team_search = request.args.get("team_search", "").strip()
+        sport_search = request.args.get("sport_search", "").strip()
+        year_filter = request.args.get("year")
         
         query = """
         SELECT c.champion_id, c.winner, c.league_id, c.year,
@@ -1790,10 +1874,30 @@ def get_all_champions():
         JOIN Teams t ON c.winner = t.team_id
         JOIN Leagues l ON c.league_id = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
-        ORDER BY c.year DESC, l.name, t.name
+        WHERE 1=1
         """
         
-        cursor.execute(query)
+        params = []
+        
+        if league_search:
+            query += " AND LOWER(l.name) LIKE %s"
+            params.append(f"%{league_search.lower()}%")
+        
+        if team_search:
+            query += " AND LOWER(t.name) LIKE %s"
+            params.append(f"%{team_search.lower()}%")
+        
+        if sport_search:
+            query += " AND LOWER(s.name) LIKE %s"
+            params.append(f"%{sport_search.lower()}%")
+        
+        if year_filter:
+            query += " AND c.year = %s"
+            params.append(int(year_filter))
+        
+        query += " ORDER BY c.year DESC, l.name, t.name"
+        
+        cursor.execute(query, params if params else None)
         champions = cursor.fetchall()
         cursor.close()
         

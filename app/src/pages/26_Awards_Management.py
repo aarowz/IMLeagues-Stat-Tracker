@@ -168,9 +168,20 @@ with tab2:
                 # Sort leagues by year (desc), then name (like Data Management page)
                 sorted_leagues = sorted(leagues, key=lambda x: (-x.get('year', 0), x.get('name', '').lower()))
                 
-                # Select league
+                # Select league (persist selection in session state)
                 league_options = {f"{l['name']} ({l.get('year', 'N/A')}) ({sport_map.get(l.get('sport_played'), 'Unknown')}) (ID: {l['league_id']})": l['league_id'] for l in sorted_leagues}
-                selected_league_display = st.selectbox("Select League", options=list(league_options.keys()))
+                league_option_keys = list(league_options.keys())
+                
+                # Use session state to persist selection across reruns
+                if "selected_champion_league" not in st.session_state:
+                    st.session_state["selected_champion_league"] = league_option_keys[0] if league_option_keys else None
+                elif st.session_state["selected_champion_league"] not in league_option_keys:
+                    # If stored selection is no longer valid, use first option
+                    st.session_state["selected_champion_league"] = league_option_keys[0] if league_option_keys else None
+                
+                selected_league_display = st.selectbox("Select League", 
+                                                       options=league_option_keys,
+                                                       key="selected_champion_league")
                 selected_league_id = league_options[selected_league_display]
                 
                 # Get league's existing champions
@@ -186,6 +197,24 @@ with tab2:
                     display_cols = ['year', 'winner_team_name']
                     available_cols = [col for col in display_cols if col in champions_df.columns]
                     st.dataframe(champions_df[available_cols], use_container_width=True, hide_index=True)
+                    
+                    # Delete champion option
+                    st.divider()
+                    st.subheader("Remove Champion")
+                    champion_options = {f"{c['winner_team_name']} ({c['year']}) (ID: {c['champion_id']})": c['champion_id'] for c in existing_champions}
+                    champion_to_delete = st.selectbox("Select Champion to Remove", options=list(champion_options.keys()))
+                    
+                    if st.button("🗑️ Delete Champion", type="secondary"):
+                        delete_response = requests.delete(f"{API_BASE}/leagues/{selected_league_id}/champions", 
+                                                        json={"champion_id": champion_options[champion_to_delete]})
+                        if delete_response.status_code == 200:
+                            show_success_fade("Champion removed successfully!")
+                        else:
+                            try:
+                                error_msg = delete_response.json().get('error', f'HTTP {delete_response.status_code}')
+                            except:
+                                error_msg = f'HTTP {delete_response.status_code}: {delete_response.text[:200]}'
+                            st.error(f"Error: {error_msg}")
                 else:
                     st.info("This league has no recorded champions yet.")
                 
@@ -239,12 +268,32 @@ with tab3:
             st.rerun()
     
     try:
-        # Fetch all player awards in a single efficient API call
-        awards_response = requests.get(f"{API_BASE}/player-awards")
+        # Player Awards Section with Filters
+        st.subheader("🏅 Player Awards")
+        
+        # Filter inputs for player awards
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            player_search = st.text_input("Search Player (name or email)", key="view_player_search")
+        with col2:
+            award_type_search = st.text_input("Search Award Type", key="view_award_type_search")
+        with col3:
+            award_year_filter = st.number_input("Filter by Year", min_value=2020, max_value=2030, value=None, key="view_award_year_filter", help="Leave empty to show all years")
+        
+        # Build API request with filter parameters
+        award_params = {}
+        if player_search:
+            award_params["player_search"] = player_search
+        if award_type_search:
+            award_params["award_type_search"] = award_type_search
+        if award_year_filter is not None:
+            award_params["year"] = int(award_year_filter)
+        
+        # Fetch player awards with filters applied via SQL
+        awards_response = requests.get(f"{API_BASE}/player-awards", params=award_params)
         all_player_awards = awards_response.json() if awards_response.status_code == 200 else []
         
         if all_player_awards:
-            st.subheader("🏅 Player Awards")
             awards_df = pd.DataFrame(all_player_awards)
             display_cols = ['player_name', 'award_type', 'year']
             if 'description' in awards_df.columns:
@@ -253,23 +302,47 @@ with tab3:
             available_cols = [col for col in display_cols if col in awards_df.columns]
             st.dataframe(awards_df[available_cols], use_container_width=True, hide_index=True)
         else:
-            st.info("No player awards found.")
+            st.info("No player awards found matching the filters.")
         
         st.divider()
         
-        # Fetch all champions in a single efficient API call
-        champions_response = requests.get(f"{API_BASE}/champions")
+        # League Champions Section with Filters
+        st.subheader("🏆 League Champions")
+        
+        # Filter inputs for champions
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            league_search = st.text_input("Search League", key="view_league_search")
+        with col2:
+            team_search = st.text_input("Search Team", key="view_team_search")
+        with col3:
+            sport_search = st.text_input("Search Sport", key="view_sport_search")
+        with col4:
+            champion_year_filter = st.number_input("Filter by Year", min_value=2020, max_value=2030, value=None, key="view_champion_year_filter", help="Leave empty to show all years")
+        
+        # Build API request with filter parameters
+        champion_params = {}
+        if league_search:
+            champion_params["league_search"] = league_search
+        if team_search:
+            champion_params["team_search"] = team_search
+        if sport_search:
+            champion_params["sport_search"] = sport_search
+        if champion_year_filter is not None:
+            champion_params["year"] = int(champion_year_filter)
+        
+        # Fetch champions with filters applied via SQL
+        champions_response = requests.get(f"{API_BASE}/champions", params=champion_params)
         all_champions = champions_response.json() if champions_response.status_code == 200 else []
         
         if all_champions:
-            st.subheader("🏆 League Champions")
             champions_df = pd.DataFrame(all_champions)
             display_cols = ['league_name', 'sport_name', 'year', 'winner_team_name']
             # Only use columns that exist
             available_cols = [col for col in display_cols if col in champions_df.columns]
             st.dataframe(champions_df[available_cols], use_container_width=True, hide_index=True)
         else:
-            st.info("No league champions found.")
+            st.info("No league champions found matching the filters.")
             
     except Exception as e:
         st.error(f"Error: {str(e)}")
