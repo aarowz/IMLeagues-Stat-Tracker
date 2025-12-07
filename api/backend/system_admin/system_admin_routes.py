@@ -2520,13 +2520,27 @@ def get_all_stat_keepers():
     try:
         cursor = db.get_db().cursor()
         
+        search = request.args.get("search", "").strip()
+        
         query = """
         SELECT keeper_id, first_name, last_name, email, total_games_tracked
         FROM Stat_Keepers
-        ORDER BY last_name, first_name
         """
         
-        cursor.execute(query)
+        params = []
+        if search:
+            query += """
+            WHERE first_name LIKE %s 
+               OR last_name LIKE %s 
+               OR email LIKE %s
+               OR CONCAT(first_name, ' ', last_name) LIKE %s
+            """
+            search_pattern = f"%{search}%"
+            params = [search_pattern, search_pattern, search_pattern, search_pattern]
+        
+        query += " ORDER BY last_name, first_name"
+        
+        cursor.execute(query, params if params else None)
         stat_keepers = cursor.fetchall()
         cursor.close()
         
@@ -2644,6 +2658,26 @@ def update_stat_keeper(keeper_id):
         cursor.close()
         
         return jsonify({"message": "Stat keeper updated successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@system_admin.route("/stat-keepers/<int:keeper_id>", methods=["DELETE"])
+def delete_stat_keeper(keeper_id):
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("SELECT keeper_id FROM Stat_Keepers WHERE keeper_id = %s", (keeper_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Stat keeper not found"}), 404
+        
+        cursor.execute("DELETE FROM Stat_Keepers WHERE keeper_id = %s", (keeper_id,))
+        
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Stat keeper deleted successfully"}), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
 

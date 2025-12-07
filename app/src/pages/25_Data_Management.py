@@ -13,7 +13,7 @@ st.write("View, filter, and update all system data including sports, leagues, te
 API_BASE = "http://web-api:4000/system-admin"
 
 # Create tabs for different entity types
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏀 Sports", "🏆 Leagues", "👥 Teams", "🏃 Players", "🎮 Games"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏀 Sports", "🏆 Leagues", "👥 Teams", "🏃 Players", "🎮 Games", "📊 Stat Keepers"])
 
 # ==================== SPORTS TAB ====================
 with tab1:
@@ -885,6 +885,77 @@ with tab5:
                                 st.error(f"Error: {error_msg}")
                         except Exception as e:
                             st.error(f"Error: {str(e)}")
+            if games:
+                st.divider()
+                st.subheader("Assign Stat Keepers to Games")
+                assign_game_options = {f"Game {g['game_id']} - {g.get('home_team', 'TBD')} vs {g.get('away_team', 'TBD')} ({g.get('date_played', 'N/A')})": g['game_id'] for g in games}
+                selected_assign_game_display = st.selectbox("Select Game", options=list(assign_game_options.keys()), key="assign_keeper_game_select")
+                selected_assign_game_id = assign_game_options[selected_assign_game_display]
+                try:
+                    assigned_keepers_response = requests.get(f"{API_BASE}/games/{selected_assign_game_id}/stat-keepers")
+                    assigned_keepers = assigned_keepers_response.json() if assigned_keepers_response.status_code == 200 else []
+                except:
+                    assigned_keepers = []
+                try:
+                    all_keepers_response = requests.get(f"{API_BASE}/stat-keepers")
+                    all_keepers = all_keepers_response.json() if all_keepers_response.status_code == 200 else []
+                except:
+                    all_keepers = []
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Currently Assigned Stat Keepers:**")
+                    if assigned_keepers:
+                        for keeper in assigned_keepers:
+                            col_display, col_remove = st.columns([3, 1])
+                            with col_display:
+                                st.write(f"- {keeper['first_name']} {keeper['last_name']} ({keeper['email']})")
+                            with col_remove:
+                                if st.button("Remove", key=f"remove_keeper_{selected_assign_game_id}_{keeper['keeper_id']}"):
+                                    try:
+                                        remove_response = requests.delete(
+                                            f"{API_BASE}/games/{selected_assign_game_id}/stat-keepers",
+                                            json={"keeper_id": keeper['keeper_id']}
+                                        )
+                                        if remove_response.status_code == 200:
+                                            st.success("Stat keeper removed!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Error: {remove_response.json().get('error', 'Unknown error')}")
+                                    except Exception as e:
+                                        st.error(f"Error: {str(e)}")
+                    else:
+                        st.info("No stat keepers assigned to this game.")
+                
+                with col2:
+                    st.write("**Assign New Stat Keeper:**")
+                    if all_keepers:
+                        assigned_keeper_ids = {k['keeper_id'] for k in assigned_keepers}
+                        available_keepers = [k for k in all_keepers if k['keeper_id'] not in assigned_keeper_ids]
+                        
+                        if available_keepers:
+                            keeper_options = {f"{k['first_name']} {k['last_name']} ({k['email']})": k['keeper_id'] for k in available_keepers}
+                            selected_keeper_display = st.selectbox("Select Stat Keeper", options=list(keeper_options.keys()), key=f"assign_keeper_select_{selected_assign_game_id}")
+                            selected_keeper_id = keeper_options[selected_keeper_display]
+                            
+                            if st.button("Assign Stat Keeper", key=f"assign_keeper_button_{selected_assign_game_id}"):
+                                try:
+                                    assign_response = requests.post(
+                                        f"{API_BASE}/games/{selected_assign_game_id}/stat-keepers",
+                                        json={"keeper_id": selected_keeper_id}
+                                    )
+                                    if assign_response.status_code == 201:
+                                        st.success("Stat keeper assigned successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Error: {assign_response.json().get('error', 'Unknown error')}")
+                                except Exception as e:
+                                    st.error(f"Error: {str(e)}")
+                        else:
+                            st.info("All stat keepers are already assigned to this game.")
+                    else:
+                        st.warning("No stat keepers available.")
             
             # Delete game section (only show if there are games to delete)
             if games:
@@ -910,6 +981,267 @@ with tab5:
                         st.error(f"Error: {str(e)}")
         else:
             st.error(f"Error loading games: {games_response.json().get('error', 'Unknown error')}")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+# ==================== STAT KEEPERS TAB ====================
+with tab6:
+    st.subheader("Stat Keepers Management")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.write("View and manage all stat keepers in the system.")
+    with col2:
+        if st.button("🔄 Refresh", key="refresh_stat_keepers"):
+            st.rerun()
+    
+    try:
+        search_filter = st.text_input("Search by Name or Email", key="stat_keeper_search_filter")
+        keeper_params = {}
+        if search_filter:
+            keeper_params["search"] = search_filter
+        keepers_response = requests.get(f"{API_BASE}/stat-keepers", params=keeper_params)
+        if keepers_response.status_code == 200:
+            stat_keepers = keepers_response.json()
+            
+            if stat_keepers:
+                filtered_keepers = stat_keepers
+                
+                if filtered_keepers:
+                    df = pd.DataFrame(filtered_keepers)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.divider()
+                    st.subheader("Edit Stat Keeper")
+                    edit_search = st.text_input("Search Stat Keeper to Edit (by name, email, or ID)", key="edit_keeper_search")
+                    edit_keeper_params = {}
+                    if edit_search:
+                        edit_keeper_params["search"] = edit_search
+                    
+                    edit_keepers_response = requests.get(f"{API_BASE}/stat-keepers", params=edit_keeper_params)
+                    edit_filtered_keepers = []
+                    if edit_keepers_response.status_code == 200:
+                        edit_filtered_keepers = edit_keepers_response.json()
+                        if edit_search and edit_search.isdigit():
+                            all_keepers_response = requests.get(f"{API_BASE}/stat-keepers")
+                            if all_keepers_response.status_code == 200:
+                                all_keepers = all_keepers_response.json()
+                                matching_id = [k for k in all_keepers if k.get('keeper_id') == int(edit_search)]
+                                for k in matching_id:
+                                    if k not in edit_filtered_keepers:
+                                        edit_filtered_keepers.append(k)
+                    
+                    if edit_filtered_keepers and edit_search:
+                        keeper_options = {f"{k['first_name']} {k['last_name']} ({k['email']}) (ID: {k['keeper_id']})": k['keeper_id'] for k in edit_filtered_keepers}
+                        selected_keeper_display = st.selectbox("Select from results", options=list(keeper_options.keys()), key="edit_keeper_select")
+                        selected_keeper_id = keeper_options[selected_keeper_display]
+                        selected_keeper = next((k for k in edit_filtered_keepers if k['keeper_id'] == selected_keeper_id), None)
+                    elif not edit_search:
+                        st.info("Enter a search term above to find a stat keeper to edit.")
+                        selected_keeper = None
+                    else:
+                        st.warning("No stat keepers found matching your search.")
+                        selected_keeper = None
+                    
+                    if selected_keeper:
+                        with st.form(f"edit_keeper_{selected_keeper_id}"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                new_first_name = st.text_input("First Name", value=selected_keeper.get('first_name', ''))
+                                new_last_name = st.text_input("Last Name", value=selected_keeper.get('last_name', ''))
+                            with col2:
+                                new_email = st.text_input("Email", value=selected_keeper.get('email', ''))
+                                new_total_games = st.number_input("Total Games Tracked", min_value=0, value=selected_keeper.get('total_games_tracked', 0))
+                            
+                            if st.form_submit_button("Update Stat Keeper"):
+                                update_key = f"updating_keeper_{selected_keeper_id}"
+                                if update_key in st.session_state:
+                                    st.warning("Update already in progress. Please wait...")
+                                    st.stop()
+                                
+                                st.session_state[update_key] = True
+                                try:
+                                    update_data = {
+                                        "first_name": new_first_name,
+                                        "last_name": new_last_name,
+                                        "email": new_email,
+                                        "total_games_tracked": int(new_total_games)
+                                    }
+                                    
+                                    update_response = requests.put(f"{API_BASE}/stat-keepers/{selected_keeper_id}", json=update_data)
+                                    
+                                    if update_key in st.session_state:
+                                        del st.session_state[update_key]
+                                    
+                                    if update_response.status_code == 200:
+                                        st.success("Stat keeper updated successfully!")
+                                    else:
+                                        try:
+                                            error_msg = update_response.json().get('error', f'HTTP {update_response.status_code}')
+                                        except:
+                                            error_msg = f'HTTP {update_response.status_code}: {update_response.text[:200]}'
+                                        st.error(f"Error: {error_msg}")
+                                except Exception as e:
+                                    if update_key in st.session_state:
+                                        del st.session_state[update_key]
+                                    st.error(f"Error: {str(e)}")
+                    st.divider()
+                    st.subheader("Add New Stat Keeper")
+                    with st.form("add_keeper"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            new_keeper_first = st.text_input("First Name *", key="new_keeper_first")
+                            new_keeper_last = st.text_input("Last Name *", key="new_keeper_last")
+                        with col2:
+                            new_keeper_email = st.text_input("Email *", key="new_keeper_email")
+                            new_keeper_games = st.number_input("Total Games Tracked", min_value=0, value=0, key="new_keeper_games")
+                        
+                        if st.form_submit_button("Add Stat Keeper"):
+                            if new_keeper_first and new_keeper_last and new_keeper_email:
+                                try:
+                                    create_data = {
+                                        "first_name": new_keeper_first,
+                                        "last_name": new_keeper_last,
+                                        "email": new_keeper_email,
+                                        "total_games_tracked": int(new_keeper_games)
+                                    }
+                                    
+                                    create_response = requests.post(f"{API_BASE}/stat-keepers", json=create_data)
+                                    if create_response.status_code == 201:
+                                        st.success("Stat keeper created successfully!")
+                                    else:
+                                        try:
+                                            error_msg = create_response.json().get('error', f'HTTP {create_response.status_code}')
+                                        except:
+                                            error_msg = f'HTTP {create_response.status_code}: {create_response.text[:200]}'
+                                        st.error(f"Error: {error_msg}")
+                                except Exception as e:
+                                    st.error(f"Error: {str(e)}")
+                            else:
+                                st.error("First name, last name, and email are required")
+                    st.divider()
+                    st.subheader("Delete Stat Keeper")
+                    delete_search = st.text_input("Search Stat Keeper to Delete (by name, email, or ID)", key="delete_keeper_search")
+                    
+                    delete_keeper_params = {}
+                    if delete_search:
+                        delete_keeper_params["search"] = delete_search
+                    
+                    delete_keepers_response = requests.get(f"{API_BASE}/stat-keepers", params=delete_keeper_params)
+                    delete_filtered_keepers = []
+                    if delete_keepers_response.status_code == 200:
+                        delete_filtered_keepers = delete_keepers_response.json()
+                        if delete_search and delete_search.isdigit():
+                            all_keepers_response = requests.get(f"{API_BASE}/stat-keepers")
+                            if all_keepers_response.status_code == 200:
+                                all_keepers = all_keepers_response.json()
+                                matching_id = [k for k in all_keepers if k.get('keeper_id') == int(delete_search)]
+                                for k in matching_id:
+                                    if k not in delete_filtered_keepers:
+                                        delete_filtered_keepers.append(k)
+                    
+                    if delete_filtered_keepers and delete_search:
+                        delete_keeper_options = {f"{k['first_name']} {k['last_name']} ({k['email']}) (ID: {k['keeper_id']})": k['keeper_id'] for k in delete_filtered_keepers}
+                        selected_delete_keeper_display = st.selectbox("Select from results", options=list(delete_keeper_options.keys()), key="delete_keeper_select")
+                        selected_delete_keeper_id = delete_keeper_options[selected_delete_keeper_display]
+                        
+                        if st.button("🗑️ Delete Stat Keeper", key="delete_keeper_button", type="secondary"):
+                            try:
+                                delete_response = requests.delete(f"{API_BASE}/stat-keepers/{selected_delete_keeper_id}")
+                                if delete_response.status_code == 200:
+                                    st.success("Stat keeper deleted successfully!")
+                                    st.rerun()
+                                else:
+                                    try:
+                                        error_msg = delete_response.json().get('error', f'HTTP {delete_response.status_code}')
+                                    except:
+                                        error_msg = f'HTTP {delete_response.status_code}: {delete_response.text[:200]}'
+                                    st.error(f"Error: {error_msg}")
+                            except Exception as e:
+                                st.error(f"Error: {str(e)}")
+                    elif not delete_search:
+                        st.info("Enter a search term above to find a stat keeper to delete.")
+                    else:
+                        st.warning("No stat keepers found matching your search.")
+                    
+                    st.divider()
+                    st.subheader("Assign Games to Stat Keeper")
+                    assign_keeper_options = {f"{k['first_name']} {k['last_name']} ({k['email']}) (ID: {k['keeper_id']})": k['keeper_id'] for k in filtered_keepers}
+                    selected_assign_keeper_display = st.selectbox("Select Stat Keeper", options=list(assign_keeper_options.keys()), key="assign_game_keeper_select")
+                    selected_assign_keeper_id = assign_keeper_options[selected_assign_keeper_display]
+                    
+                    try:
+                        assigned_games_response = requests.get(f"{API_BASE}/stat-keepers/{selected_assign_keeper_id}/games")
+                        assigned_games = assigned_games_response.json() if assigned_games_response.status_code == 200 else []
+                    except:
+                        assigned_games = []
+                    
+                    try:
+                        games_response = requests.get(f"{API_BASE}/games")
+                        all_games = games_response.json() if games_response.status_code == 200 else []
+                    except:
+                        all_games = []
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Currently Assigned Games:**")
+                        if assigned_games:
+                            for idx, game in enumerate(assigned_games):
+                                col_display, col_remove = st.columns([3, 1])
+                                with col_display:
+                                    game_label = f"{game.get('date_played', 'N/A')} - {game.get('home_team', 'TBD')} vs {game.get('away_team', 'TBD')}"
+                                    st.write(f"- {game_label}")
+                                with col_remove:
+                                    if st.button("Remove", key=f"remove_game_{selected_assign_keeper_id}_{game['game_id']}_{idx}"):
+                                        try:
+                                            remove_response = requests.delete(
+                                                f"{API_BASE}/games/{game['game_id']}/stat-keepers",
+                                                json={"keeper_id": selected_assign_keeper_id}
+                                            )
+                                            if remove_response.status_code == 200:
+                                                st.success("Game removed!")
+                                                st.rerun()
+                                            else:
+                                                st.error(f"Error: {remove_response.json().get('error', 'Unknown error')}")
+                                        except Exception as e:
+                                            st.error(f"Error: {str(e)}")
+                        else:
+                            st.info("No games assigned to this stat keeper.")
+                    
+                    with col2:
+                        st.write("**Assign New Game:**")
+                        if all_games:
+                            assigned_game_ids = {g['game_id'] for g in assigned_games}
+                            available_games = [g for g in all_games if g.get('game_id') not in assigned_game_ids]
+                            
+                            if available_games:
+                                game_options = {f"Game {g['game_id']} - {g.get('home_team', 'TBD')} vs {g.get('away_team', 'TBD')} ({g.get('date_played', 'N/A')})": g['game_id'] for g in available_games}
+                                selected_game_display = st.selectbox("Select Game", options=list(game_options.keys()), key=f"assign_game_select_{selected_assign_keeper_id}")
+                                selected_game_id = game_options[selected_game_display]
+                                
+                                if st.button("Assign Game", key=f"assign_game_button_{selected_assign_keeper_id}"):
+                                    try:
+                                        assign_response = requests.post(
+                                            f"{API_BASE}/games/{selected_game_id}/stat-keepers",
+                                            json={"keeper_id": selected_assign_keeper_id}
+                                        )
+                                        if assign_response.status_code == 201:
+                                            st.success("Game assigned successfully!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Error: {assign_response.json().get('error', 'Unknown error')}")
+                                    except Exception as e:
+                                        st.error(f"Error: {str(e)}")
+                            else:
+                                st.info("All games are already assigned to this stat keeper.")
+                        else:
+                            st.warning("No games available.")
+                else:
+                    st.info("No stat keepers match the search criteria.")
+            else:
+                st.info("No stat keepers found.")
+        else:
+            st.error(f"Error loading stat keepers: {keepers_response.json().get('error', 'Unknown error')}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 

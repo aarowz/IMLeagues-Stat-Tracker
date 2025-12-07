@@ -90,6 +90,66 @@ with tab1:
                             st.rerun()
                 
                 if st.session_state.get(f"editing_game_{game['game_id']}", False):
+                    st.write("**Stat Keepers:**")
+                    try:
+                        assigned_response = requests.get(f"{API_BASE}/games/{game['game_id']}/stat-keepers")
+                        assigned_keepers = assigned_response.json() if assigned_response.status_code == 200 else []
+                    except:
+                        assigned_keepers = []
+                    try:
+                        all_keepers_response = requests.get(f"{API_BASE}/stat-keepers")
+                        all_keepers = all_keepers_response.json() if all_keepers_response.status_code == 200 else []
+                    except:
+                        all_keepers = []
+                    
+                    if assigned_keepers:
+                        st.write("**Currently Assigned:**")
+                        for keeper in assigned_keepers:
+                            col_display, col_remove = st.columns([3, 1])
+                            with col_display:
+                                st.write(f"- {keeper['first_name']} {keeper['last_name']} ({keeper['email']})")
+                            with col_remove:
+                                if st.button("Remove", key=f"remove_keeper_edit_{game['game_id']}_{keeper['keeper_id']}_{idx}"):
+                                    try:
+                                        remove_response = requests.delete(
+                                            f"{API_BASE}/games/{game['game_id']}/stat-keepers",
+                                            json={"keeper_id": keeper['keeper_id']}
+                                        )
+                                        if remove_response.status_code == 200:
+                                            st.success("Stat keeper removed!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Error: {remove_response.json().get('error', 'Unknown error')}")
+                                    except Exception as e:
+                                        st.error(f"Error: {str(e)}")
+                    
+                    if all_keepers:
+                        assigned_keeper_ids = {k['keeper_id'] for k in assigned_keepers}
+                        available_keepers = [k for k in all_keepers if k['keeper_id'] not in assigned_keeper_ids]
+                        
+                        if available_keepers:
+                            st.write("**Assign New Stat Keeper:**")
+                            col_assign, col_assign_btn = st.columns([4, 1])
+                            with col_assign:
+                                keeper_options = {None: "No Stat Keeper"} | {k['keeper_id']: f"{k['first_name']} {k['last_name']} ({k['email']})" for k in available_keepers}
+                                selected_keeper_display = st.selectbox("Stat Keeper", options=list(keeper_options.keys()), format_func=lambda x: keeper_options.get(x, "No Stat Keeper"), key=f"assign_keeper_edit_{game['game_id']}_{idx}")
+                            with col_assign_btn:
+                                st.markdown('<div style="height: 1.5rem;"></div>', unsafe_allow_html=True)
+                                if selected_keeper_display and st.button("Assign", key=f"assign_keeper_btn_{game['game_id']}_{idx}", use_container_width=True):
+                                    try:
+                                        assign_response = requests.post(
+                                            f"{API_BASE}/games/{game['game_id']}/stat-keepers",
+                                            json={"keeper_id": selected_keeper_display}
+                                        )
+                                        if assign_response.status_code == 201:
+                                            st.success("Stat keeper assigned!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Error: {assign_response.json().get('error', 'Unknown error')}")
+                                    except Exception as e:
+                                        st.error(f"Error: {str(e)}")
+                    
+                    st.divider()
                     with st.form(f"edit_form_upcoming_{game['game_id']}_{idx}"):
                         new_date = st.date_input("Date", value=datetime.strptime(game['date_played'], '%Y-%m-%d').date(), key=f"date_upcoming_{game['game_id']}_{idx}")
                         new_time = st.time_input("Time", value=datetime.strptime(str(game['start_time']), '%H:%M:%S').time(), key=f"time_upcoming_{game['game_id']}_{idx}")
@@ -182,6 +242,21 @@ with tab3:
             opponent_teams = [t for t in teams if t["team_id"] != TEAM_ID]
             opponent = st.selectbox("Opponent", options=opponent_teams, format_func=lambda x: x["name"])
             is_home = st.radio("Home or Away?", ["Home", "Away"])
+            st.divider()
+            st.write("**Assign Stat Keeper (Optional):**")
+            try:
+                keepers_response = requests.get(f"{API_BASE}/stat-keepers")
+                all_keepers = keepers_response.json() if keepers_response.status_code == 200 else []
+            except:
+                all_keepers = []
+            
+            selected_keeper_id = None
+            if all_keepers:
+                keeper_options = {None: "No Stat Keeper"} | {k['keeper_id']: f"{k['first_name']} {k['last_name']} ({k['email']})" for k in all_keepers}
+                selected_keeper_display = st.selectbox("Stat Keeper", options=list(keeper_options.keys()), format_func=lambda x: keeper_options.get(x, "No Stat Keeper"))
+                selected_keeper_id = selected_keeper_display
+            else:
+                st.info("No stat keepers available.")
             
             if st.form_submit_button("Schedule Game", type="primary"):
                 try:
@@ -199,7 +274,24 @@ with tab3:
                     
                     response = requests.post(f"{API_BASE}/games", json=game_data)
                     if response.status_code == 201:
-                        st.success("Game scheduled successfully!")
+                        game_result = response.json()
+                        new_game_id = game_result.get("game_id")
+                        if selected_keeper_id and new_game_id:
+                            try:
+                                keeper_response = requests.post(
+                                    f"{API_BASE}/games/{new_game_id}/stat-keepers",
+                                    json={"keeper_id": selected_keeper_id}
+                                )
+                                if keeper_response.status_code == 201:
+                                    st.success("Game scheduled and stat keeper assigned successfully!")
+                                else:
+                                    st.success("Game scheduled successfully!")
+                                    st.warning(f"Stat keeper assignment failed: {keeper_response.json().get('error', 'Unknown error')}")
+                            except Exception as e:
+                                st.success("Game scheduled successfully!")
+                                st.warning(f"Stat keeper assignment failed: {str(e)}")
+                        else:
+                            st.success("Game scheduled successfully!")
                         st.rerun()
                     else:
                         try:

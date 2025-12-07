@@ -431,17 +431,34 @@ def update_stat_event(game_id, event_id):
             cursor.close()
             return jsonify({"error": "Stat event not found or does not belong to this game"}), 404
         
-        if "description" not in data:
-            cursor.close()
-            return jsonify({"error": "Missing required field: description"}), 400
+        update_fields = []
+        params = []
         
-        update_query = """
+        if "description" in data:
+            update_fields.append("description = %s")
+            params.append(data["description"])
+        
+        if "performed_by" in data:
+            cursor.execute("SELECT player_id FROM Players WHERE player_id = %s", (data["performed_by"],))
+            if not cursor.fetchone():
+                cursor.close()
+                return jsonify({"error": "Player not found"}), 404
+            update_fields.append("performed_by = %s")
+            params.append(data["performed_by"])
+        
+        if not update_fields:
+            cursor.close()
+            return jsonify({"error": "No fields to update"}), 400
+        
+        params.extend([event_id, game_id])
+        
+        update_query = f"""
         UPDATE StatEvent
-        SET description = %s
+        SET {', '.join(update_fields)}
         WHERE event_id = %s AND scored_during = %s
         """
         
-        cursor.execute(update_query, (data["description"], event_id, game_id))
+        cursor.execute(update_query, params)
         db.get_db().commit()
         cursor.close()
         

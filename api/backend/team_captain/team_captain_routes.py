@@ -823,3 +823,126 @@ def get_opponents(team_id):
         return jsonify(opponents), 200
     except Error as e:
         return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/games/<int:game_id>/stat-keepers", methods=["GET"])
+def get_game_stat_keepers(game_id):
+    try:
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("""
+            SELECT g.game_id 
+            FROM Games g
+            JOIN Teams_Games tg ON g.game_id = tg.game_id
+            WHERE g.game_id = %s
+        """, (game_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Game not found"}), 404
+        
+        query = """
+        SELECT sk.keeper_id, sk.first_name, sk.last_name, sk.email,
+               sk.total_games_tracked, gk.assignment_date
+        FROM Games_Keepers gk
+        JOIN Stat_Keepers sk ON gk.keeper_id = sk.keeper_id
+        WHERE gk.game_id = %s
+        ORDER BY gk.assignment_date DESC
+        """
+        
+        cursor.execute(query, (game_id,))
+        stat_keepers = cursor.fetchall()
+        cursor.close()
+        
+        stat_keepers = convert_datetime_for_json(stat_keepers)
+        
+        return jsonify(stat_keepers), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/games/<int:game_id>/stat-keepers", methods=["POST"])
+def assign_stat_keeper_to_game(game_id):
+    try:
+        data = request.get_json()
+        
+        if "keeper_id" not in data:
+            return jsonify({"error": "Missing required field: keeper_id"}), 400
+        
+        cursor = db.get_db().cursor()
+        cursor.execute("SELECT game_id FROM Games WHERE game_id = %s", (game_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Game not found"}), 404
+        cursor.execute("SELECT keeper_id FROM Stat_Keepers WHERE keeper_id = %s", (data["keeper_id"],))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Stat keeper not found"}), 404
+        
+        insert_query = """
+        INSERT INTO Games_Keepers (keeper_id, game_id, assignment_date)
+        VALUES (%s, %s, CURDATE())
+        ON DUPLICATE KEY UPDATE assignment_date = CURDATE()
+        """
+        
+        cursor.execute(insert_query, (data["keeper_id"], game_id))
+        
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Stat keeper assigned to game successfully"}), 201
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/games/<int:game_id>/stat-keepers", methods=["DELETE"])
+def remove_stat_keeper_from_game(game_id):
+    try:
+        data = request.get_json()
+        
+        if "keeper_id" not in data:
+            return jsonify({"error": "Missing required field: keeper_id"}), 400
+        
+        cursor = db.get_db().cursor()
+        
+        cursor.execute("""
+            SELECT * FROM Games_Keepers 
+            WHERE game_id = %s AND keeper_id = %s
+        """, (game_id, data["keeper_id"]))
+        
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({"error": "Stat keeper not assigned to this game"}), 404
+        
+        cursor.execute("""
+            DELETE FROM Games_Keepers 
+            WHERE game_id = %s AND keeper_id = %s
+        """, (game_id, data["keeper_id"]))
+        
+        db.get_db().commit()
+        cursor.close()
+        
+        return jsonify({"message": "Stat keeper removed from game successfully"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@team_captain.route("/stat-keepers", methods=["GET"])
+def get_all_stat_keepers():
+    try:
+        cursor = db.get_db().cursor()
+        
+        query = """
+        SELECT keeper_id, first_name, last_name, email, total_games_tracked
+        FROM Stat_Keepers
+        ORDER BY last_name, first_name
+        """
+        
+        cursor.execute(query)
+        stat_keepers = cursor.fetchall()
+        cursor.close()
+        
+        stat_keepers = convert_datetime_for_json(stat_keepers)
+        
+        return jsonify(stat_keepers), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
