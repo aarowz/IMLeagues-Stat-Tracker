@@ -20,4 +20,10 @@ insert into Champions (winner, league_id, year) values (73, 17, 2025);
 insert into Champions (winner, league_id, year) values (42, 18, 2025);
 insert into Champions (winner, league_id, year) values (16, 19, 2025);
 insert into Champions (winner, league_id, year) values (89, 20, 2025);
--- Leagues 21-25 have no champions yet (ongoing/new leagues)
+insert into Champions (winner, league_id, year) values (24, 21, 2025);
+insert into Champions (winner, league_id, year) values (33, 22, 2025);
+insert into Champions (winner, league_id, year) values (47, 23, 2025);
+insert into Champions (winner, league_id, year) values (61, 24, 2025);
+insert into Champions (winner, league_id, year) values (18, 25, 2025);
+insert into Champions (winner, league_id, year) values (29, 26, 2024);
+insert into Champions (winner, league_id, year) values (35, 27, 2024);
