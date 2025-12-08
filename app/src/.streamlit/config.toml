@@ -11,6 +11,8 @@
 # Turning the default sidebar navigation off so we 
 # can use our own
 showSidebarNavigation = false
+# Serve static files from the static directory
+staticDirs = ["static"]
 
 [theme]
 # Setting some basic config options related to the theme of the app

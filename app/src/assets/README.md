@@ -1,5 +1,8 @@
-# `assets` Directory
+# `assets` Directory (Deprecated)
 
-A place for some static assets for your app.  Images, etc.
+**Note**: This directory has been refactored into the `static/` folder per Streamlit's best practices.
 
-TODO: Refactor assets folder into static folder per https://docs.streamlit.io/develop/concepts/configuration/serving-static-files
+Please use the `static/` directory instead for all static assets (images, CSS, etc.).
+
+For more information on serving static files in Streamlit, see:
+https://docs.streamlit.io/develop/concepts/configuration/serving-static-files
