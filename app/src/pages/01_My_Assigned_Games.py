@@ -6,8 +6,27 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
+# Workflow progress indicator
+st.markdown("""
+<style>
+.workflow-container { display: flex; justify-content: center; align-items: center; margin-bottom: 1rem; padding: 0.75rem; background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%); border-radius: 10px; }
+.workflow-step { display: flex; align-items: center; padding: 0.5rem 1rem; margin: 0 0.25rem; border-radius: 8px; font-weight: 500; }
+.workflow-step.completed { background: #2d5a3d; color: #90EE90; }
+.workflow-step.active { background: #4a90d9; color: white; box-shadow: 0 0 10px rgba(74, 144, 217, 0.5); }
+.workflow-step.pending { background: #3a3a4a; color: #888; }
+.workflow-arrow { color: #666; margin: 0 0.5rem; font-size: 1.2rem; }
+</style>
+<div class="workflow-container">
+    <div class="workflow-step active">① Select Game</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step pending">② Enter Stats</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step pending">③ Finalize</div>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("My Assigned Games")
-st.write("View all games assigned to you as a stat keeper.")
+st.write("View all games assigned to you as a stat keeper. Select a game to start the stat-keeping workflow.")
 
 # Stat keeper ID
 STAT_KEEPER_ID = 1
@@ -112,7 +131,7 @@ with tab1:
                     if game.get('home_team') and game.get('away_team'):
                         if st.button("Start Live Entry", key=f"start_{game['game_id']}_{idx}", use_container_width=True):
                             st.session_state['selected_game_id'] = game['game_id']
-                            st.switch_page('pages/01_Live_Stat_Entry.py')
+                            st.switch_page('pages/02_Live_Stat_Entry.py')
                     else:
                         st.button("Start Live Entry", key=f"start_{game['game_id']}_{idx}", use_container_width=True, disabled=True)
                         st.caption("Teams required")
@@ -193,13 +212,13 @@ with tab2:
                     with col_view:
                         if st.button("View", key=f"view_{game['game_id']}_{idx}", use_container_width=True):
                             st.session_state['selected_game_id'] = game['game_id']
-                            st.switch_page('pages/02_Game_Finalization.py')
+                            st.switch_page('pages/03_Game_Finalization.py')
                     
                     with col_finalize:
                         if home_score is None or away_score is None:
                             if st.button("Finalize", key=f"finalize_{game['game_id']}_{idx}", use_container_width=True):
                                 st.session_state['selected_game_id'] = game['game_id']
-                                st.switch_page('pages/02_Game_Finalization.py')
+                                st.switch_page('pages/03_Game_Finalization.py')
                 
                 st.divider()
     else:

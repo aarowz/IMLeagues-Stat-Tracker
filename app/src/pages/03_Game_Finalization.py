@@ -6,6 +6,25 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
+# Workflow progress indicator
+st.markdown("""
+<style>
+.workflow-container { display: flex; justify-content: center; align-items: center; margin-bottom: 1rem; padding: 0.75rem; background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%); border-radius: 10px; }
+.workflow-step { display: flex; align-items: center; padding: 0.5rem 1rem; margin: 0 0.25rem; border-radius: 8px; font-weight: 500; }
+.workflow-step.completed { background: #2d5a3d; color: #90EE90; }
+.workflow-step.active { background: #4a90d9; color: white; box-shadow: 0 0 10px rgba(74, 144, 217, 0.5); }
+.workflow-step.pending { background: #3a3a4a; color: #888; }
+.workflow-arrow { color: #666; margin: 0 0.5rem; font-size: 1.2rem; }
+</style>
+<div class="workflow-container">
+    <div class="workflow-step completed">✓ Select Game</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step completed">✓ Enter Stats</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step active">③ Finalize</div>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("Game Finalization")
 st.write("Review game statistics and finalize scores before submitting.")
 
@@ -13,36 +32,67 @@ st.write("Review game statistics and finalize scores before submitting.")
 STAT_KEEPER_ID = 1
 API_BASE = "http://web-api:4000/stat-keeper"
 
-# Fetch assigned games
+# Fetch assigned games from both upcoming and past endpoints
 try:
-    games_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games")
-    if games_response.status_code == 200:
-        all_games = games_response.json()
-        # Show games that have stats but may not be finalized
-        games_with_stats = [g for g in all_games if g.get('home_score') is not None or g.get('away_score') is not None]
-        # Also include recent games
-        today = datetime.now().date()
-        recent_games = [
-            g for g in all_games 
-            if datetime.strptime(g['date_played'], '%Y-%m-%d').date() <= today
-        ]
-        available_games = list({g['game_id']: g for g in games_with_stats + recent_games}.values())
-    else:
+    # Get both upcoming and past games from API
+    upcoming_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=true")
+    past_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=false")
+    
+    all_games = []
+    if upcoming_response.status_code == 200:
+        all_games.extend(upcoming_response.json())
+    if past_response.status_code == 200:
+        all_games.extend(past_response.json())
+    
+    if not all_games:
         available_games = []
-        st.error(f"Error fetching games: {games_response.json().get('error', 'Unknown error')}")
+        if upcoming_response.status_code != 200:
+            st.error(f"Error fetching upcoming games: {upcoming_response.json().get('error', 'Unknown error')}")
+        if past_response.status_code != 200:
+            st.error(f"Error fetching past games: {past_response.json().get('error', 'Unknown error')}")
+    else:
+        # Filter to games that can be finalized:
+        # - Games with teams assigned (required for finalization)
+        # - Games from today or past (can't finalize future games)
+        today = datetime.now().date()
+        available_games = [
+            g for g in all_games
+            if g.get('home_team') is not None 
+            and g.get('away_team') is not None
+            and datetime.strptime(g['date_played'], '%Y-%m-%d').date() <= today
+        ]
+        # Remove duplicates by game_id and sort by date (most recent first)
+        available_games = list({g['game_id']: g for g in available_games}.values())
+        available_games.sort(key=lambda x: x['date_played'], reverse=True)
 except Exception as e:
     st.error(f"Error: {str(e)}")
     available_games = []
 
 if not available_games:
     st.warning("No games available for finalization.")
+    if st.button("← Back to My Assigned Games"):
+        st.switch_page('pages/01_My_Assigned_Games.py')
     st.stop()
 
-# Game selector
+# Check if we came from Live Stat Entry with a selected game
+selected_game_id_from_state = st.session_state.get('selected_game_id')
+default_index = 0
+
+if selected_game_id_from_state:
+    # Find the game in available_games
+    for idx, g in enumerate(available_games):
+        if g['game_id'] == selected_game_id_from_state:
+            default_index = idx
+            break
+    # Clear the session state so it doesn't persist on future visits
+    del st.session_state['selected_game_id']
+
+# Game selector with pre-selection
 selected_game_option = st.selectbox(
     "Select Game to Finalize",
     options=available_games,
-    format_func=lambda g: f"{g['date_played']} - {g['home_team']} vs {g['away_team']} @ {g['location']}"
+    index=default_index,
+    format_func=lambda g: f"{g['date_played']} - {g.get('home_team', 'TBD')} vs {g.get('away_team', 'TBD')} @ {g['location']}"
 )
 
 if not selected_game_option:
@@ -232,22 +282,29 @@ st.divider()
 st.subheader("Finalize Game")
 st.write("Once you've reviewed all statistics and confirmed the final scores, click below to finalize the game.")
 
-if st.button("✅ Finalize and Submit Game", type="primary", use_container_width=True):
-    # Finalize by updating scores if needed and marking as complete
-    # In a real system, you might have a separate "is_finalized" flag
-    # For now, we'll just ensure scores are set
-    try:
-        final_data = {
-            "home_score": new_home_score if 'new_home_score' in locals() else current_home_score,
-            "away_score": new_away_score if 'new_away_score' in locals() else current_away_score
-        }
-        response = requests.put(f"{API_BASE}/games/{game_id}", json=final_data)
-        if response.status_code == 200:
-            st.success("🎉 Game finalized successfully! Stats are now official and visible to all players and teams.")
-            st.balloons()
-            st.info("You can now view this game in the 'My Assigned Games' page.")
-        else:
-            st.error(f"Error finalizing game: {response.json().get('error', 'Unknown error')}")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+col_finalize, col_back = st.columns([2, 1])
+
+with col_finalize:
+    if st.button("✅ Finalize and Submit Game", type="primary", use_container_width=True):
+        # Finalize by updating scores if needed and marking as complete
+        try:
+            final_data = {
+                "home_score": new_home_score if 'new_home_score' in locals() else current_home_score,
+                "away_score": new_away_score if 'new_away_score' in locals() else current_away_score
+            }
+            response = requests.put(f"{API_BASE}/games/{game_id}", json=final_data)
+            if response.status_code == 200:
+                st.success("🎉 Game finalized successfully! Stats are now official and visible to all players and teams.")
+                st.balloons()
+                st.info("Returning to My Assigned Games...")
+                st.switch_page('pages/01_My_Assigned_Games.py')
+            else:
+                st.error(f"Error finalizing game: {response.json().get('error', 'Unknown error')}")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+with col_back:
+    if st.button("← Back to Stats Entry", use_container_width=True):
+        st.session_state['selected_game_id'] = game_id
+        st.switch_page('pages/02_Live_Stat_Entry.py')
 

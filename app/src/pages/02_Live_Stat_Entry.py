@@ -6,12 +6,87 @@ from modules.nav import SideBarLinks
 SideBarLinks()
 st.set_page_config(layout='wide')
 
+# Workflow progress indicator
+st.markdown("""
+<style>
+.workflow-container { display: flex; justify-content: center; align-items: center; margin-bottom: 1rem; padding: 0.75rem; background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%); border-radius: 10px; }
+.workflow-step { display: flex; align-items: center; padding: 0.5rem 1rem; margin: 0 0.25rem; border-radius: 8px; font-weight: 500; }
+.workflow-step.completed { background: #2d5a3d; color: #90EE90; }
+.workflow-step.active { background: #4a90d9; color: white; box-shadow: 0 0 10px rgba(74, 144, 217, 0.5); }
+.workflow-step.pending { background: #3a3a4a; color: #888; }
+.workflow-arrow { color: #666; margin: 0 0.5rem; font-size: 1.2rem; }
+</style>
+<div class="workflow-container">
+    <div class="workflow-step completed">✓ Select Game</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step active">② Enter Stats</div>
+    <span class="workflow-arrow">→</span>
+    <div class="workflow-step pending">③ Finalize</div>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("Live Stat Entry")
 st.write("Quickly log player statistics in real-time during games.")
 
 # Stat keeper ID - using default for now (could be stored in session_state)
 STAT_KEEPER_ID = 1
 API_BASE = "http://web-api:4000/stat-keeper"
+
+# Define scoring stats and their point values
+SCORING_STATS = {
+    # Basketball
+    "2 points scored": 2,
+    "3 points scored": 3,
+    "1 point scored (free throw)": 1,
+    # Soccer
+    "Goal scored": 1,
+    # Generic
+    "Point scored": 1,
+}
+
+def get_points_for_stat(description):
+    """Returns the point value for a stat description, or 0 if not a scoring stat."""
+    return SCORING_STATS.get(description, 0)
+
+def update_game_score(api_base, game_id, player_id, points, game_data, players_list):
+    """Updates the game score based on which team the player is on."""
+    if points == 0:
+        return True  # No score update needed
+    
+    # Determine which team the player is on
+    player_team_id = None
+    for p in players_list:
+        if p['player_id'] == player_id:
+            player_team_id = p.get('team_id')
+            break
+    
+    if not player_team_id:
+        return False
+    
+    # Get current scores
+    current_home_score = game_data.get('home_score') or 0
+    current_away_score = game_data.get('away_score') or 0
+    
+    # Update the appropriate team's score
+    if player_team_id == game_data.get('home_team_id'):
+        new_home_score = current_home_score + points
+        new_away_score = current_away_score
+    elif player_team_id == game_data.get('away_team_id'):
+        new_home_score = current_home_score
+        new_away_score = current_away_score + points
+    else:
+        return False
+    
+    # Update score via API
+    try:
+        update_data = {
+            "home_score": new_home_score,
+            "away_score": new_away_score
+        }
+        response = requests.put(f"{api_base}/games/{game_id}", json=update_data)
+        return response.status_code == 200
+    except:
+        return False
 
 # Fetch assigned games with filtering done at API/database level
 try:
@@ -34,14 +109,40 @@ except Exception as e:
 
 if not available_games:
     st.warning("No games available for live stat entry. Please check your assigned games.")
+    if st.button("← Back to My Assigned Games"):
+        st.switch_page('pages/01_My_Assigned_Games.py')
     st.stop()
 
-# Game selector
+# Check if we came from "My Assigned Games" with a selected game
+selected_game_id_from_state = st.session_state.get('selected_game_id')
+
+# Initialize the current game in session state if coming from another page
+if selected_game_id_from_state:
+    st.session_state['current_stat_entry_game_id'] = selected_game_id_from_state
+    # Clear the navigation state
+    del st.session_state['selected_game_id']
+
+# Find the index of the currently selected game
+default_index = 0
+current_game_id = st.session_state.get('current_stat_entry_game_id')
+if current_game_id:
+    for idx, g in enumerate(available_games):
+        if g['game_id'] == current_game_id:
+            default_index = idx
+            break
+
+# Game selector with pre-selection - use a key to maintain state
 selected_game_option = st.selectbox(
     "Select Game",
     options=available_games,
-    format_func=lambda g: f"{g['date_played']} - {g.get('home_team', 'TBD')} vs {g.get('away_team', 'TBD')} @ {g['location']}"
+    index=default_index,
+    format_func=lambda g: f"{g['date_played']} - {g.get('home_team', 'TBD')} vs {g.get('away_team', 'TBD')} @ {g['location']}",
+    key="stat_entry_game_selector"
 )
+
+# Update the session state with the currently selected game
+if selected_game_option:
+    st.session_state['current_stat_entry_game_id'] = selected_game_option['game_id']
 
 if not selected_game_option:
     st.stop()
@@ -196,13 +297,18 @@ with col_left:
         for idx, (label, description) in enumerate(common_stats):
             col_idx = idx % 3
             with button_cols[col_idx]:
+                # Add visual indicator for scoring stats
+                points = get_points_for_stat(description)
+                button_label = f"{label} (+{points})" if points > 0 else label
+                
                 if st.button(
-                    label,
+                    button_label,
                     key=f"quick_stat_{idx}",
                     use_container_width=True,
                     type="primary"
                 ):
                     try:
+                        # First, record the stat event
                         stat_data = {
                             "performed_by": selected_player_id,
                             "description": description
@@ -212,7 +318,15 @@ with col_left:
                             json=stat_data
                         )
                         if response.status_code == 201:
-                            st.success(f"✅ {label} recorded!")
+                            # If it's a scoring stat, also update the game score
+                            if points > 0:
+                                score_updated = update_game_score(API_BASE, game_id, selected_player_id, points, game, all_players_list)
+                                if score_updated:
+                                    st.success(f"✅ {label} recorded! (+{points} points)")
+                                else:
+                                    st.warning(f"✅ {label} recorded, but score update failed")
+                            else:
+                                st.success(f"✅ {label} recorded!")
                             st.rerun()
                         else:
                             st.error(f"Error: {response.json().get('error', 'Unknown error')}")
@@ -273,11 +387,19 @@ with col_left:
             with col3:
                 if st.button("🗑️ Delete", key=f"delete_{event['event_id']}"):
                     try:
+                        # Check if this was a scoring stat - we need to subtract points
+                        points = get_points_for_stat(event['description'])
+                        
                         delete_response = requests.delete(
                             f"{API_BASE}/games/{game_id}/stat-events/{event['event_id']}"
                         )
                         if delete_response.status_code == 200:
-                            st.success("Stat deleted!")
+                            # If it was a scoring stat, subtract points from the score
+                            if points > 0:
+                                update_game_score(API_BASE, game_id, event['performed_by'], -points, game, all_players_list)
+                                st.success(f"Stat deleted! (-{points} points)")
+                            else:
+                                st.success("Stat deleted!")
                             st.rerun()
                         else:
                             st.error(f"Error: {delete_response.json().get('error', 'Unknown error')}")
@@ -338,46 +460,69 @@ with col_left:
 with col_right:
     st.subheader("Live Summary")
     
-    # Team totals
-    st.write("**Team Totals:**")
-    home_stats_count = len([e for e in stat_events if any(p['player_id'] == e['performed_by'] and p['team_id'] == game['home_team_id'] for p in all_players_list)])
-    away_stats_count = len([e for e in stat_events if any(p['player_id'] == e['performed_by'] and p['team_id'] == game['away_team_id'] for p in all_players_list)])
-    
-    col_home, col_away = st.columns(2)
-    with col_home:
-        st.metric(game['home_team'], home_stats_count)
-    with col_away:
-        st.metric(game['away_team'], away_stats_count)
-    
-    st.divider()
-    
-    # Top performers
-    st.write("**Top Performers:**")
-    
-    # Count stats per player
-    player_stat_counts = {}
-    for event in stat_events:
-        player_id = event['performed_by']
-        if player_id not in player_stat_counts:
-            player_stat_counts[player_id] = 0
-        player_stat_counts[player_id] += 1
-    
-    # Sort and display top 5
-    top_players = sorted(player_stat_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-    
-    if top_players:
-        for player_id, count in top_players:
-            player_name = next(
-                (f"{p['first_name']} {p['last_name']}" for p in all_players_list if p['player_id'] == player_id),
-                "Unknown Player"
-            )
-            st.write(f"**{player_name}**: {count} stats")
-    else:
-        st.info("No stats recorded yet")
+    # Use the API summary endpoint for team totals and top performers
+    try:
+        summary_response = requests.get(f"{API_BASE}/games/{game_id}/summary")
+        if summary_response.status_code == 200:
+            summary = summary_response.json()
+            team_totals = summary.get('team_totals', {})
+            home_leaders = summary.get('home_team_leaders', [])
+            away_leaders = summary.get('away_team_leaders', [])
+            
+            # Team totals from API
+            st.write("**Team Totals:**")
+            home_stats_count = team_totals.get('home_team_stat_count', 0) or 0
+            away_stats_count = team_totals.get('away_team_stat_count', 0) or 0
+            
+            col_home, col_away = st.columns(2)
+            with col_home:
+                st.metric(game['home_team'], home_stats_count)
+            with col_away:
+                st.metric(game['away_team'], away_stats_count)
+            
+            st.divider()
+            
+            # Top performers from API
+            st.write("**Top Performers:**")
+            all_leaders = home_leaders + away_leaders
+            # Sort by stat count and get top 5
+            all_leaders_sorted = sorted(all_leaders, key=lambda x: x.get('total_stat_events', 0), reverse=True)[:5]
+            
+            if all_leaders_sorted and any(l.get('total_stat_events', 0) > 0 for l in all_leaders_sorted):
+                for leader in all_leaders_sorted:
+                    if leader.get('total_stat_events', 0) > 0:
+                        st.write(f"**{leader['first_name']} {leader['last_name']}**: {leader['total_stat_events']} stats")
+            else:
+                st.info("No stats recorded yet")
+        else:
+            # Fallback to client-side calculation if API fails
+            st.write("**Team Totals:**")
+            home_stats_count = len([e for e in stat_events if any(p['player_id'] == e['performed_by'] and p.get('team_id') == game.get('home_team_id') for p in all_players_list)])
+            away_stats_count = len([e for e in stat_events if any(p['player_id'] == e['performed_by'] and p.get('team_id') == game.get('away_team_id') for p in all_players_list)])
+            
+            col_home, col_away = st.columns(2)
+            with col_home:
+                st.metric(game.get('home_team', 'Home'), home_stats_count)
+            with col_away:
+                st.metric(game.get('away_team', 'Away'), away_stats_count)
+            
+            st.divider()
+            st.write("**Top Performers:**")
+            st.info("Could not load from API")
+    except Exception as e:
+        st.warning(f"Could not load summary: {str(e)}")
     
     st.divider()
     
     # Auto-refresh option
     if st.button("🔄 Refresh Stats", use_container_width=True):
         st.rerun()
+    
+    st.divider()
+    
+    # Proceed to finalization button
+    st.write("**Done entering stats?**")
+    if st.button("Proceed to Finalization →", type="primary", use_container_width=True):
+        st.session_state['selected_game_id'] = game_id
+        st.switch_page('pages/03_Game_Finalization.py')
 
