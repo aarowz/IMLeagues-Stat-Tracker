@@ -27,4 +27,3 @@ if st.button('My Assigned Games',
              type='primary',
              use_container_width=True):
     st.switch_page('pages/03_My_Assigned_Games.py')
-
