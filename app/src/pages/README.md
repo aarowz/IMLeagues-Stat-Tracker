@@ -6,3 +6,6 @@ These pages are meant to show you an example of some of the features of Streamli
 
 TODO: Describe the pages folder and include link to documentation. Don't forget about ordering of pages.
 
+## Pages
+
+The pages are organized by Role. Pages that start with a `0` are related to the Stat Keeper role. Pages that start with a `1` are related to the Player role or Team Captain role. Pages that start with a `2` are related to The System Administrator role. 
