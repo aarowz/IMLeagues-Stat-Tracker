@@ -7,7 +7,7 @@ SideBarLinks()
 st.set_page_config(layout='wide')
 
 st.title("My Assigned Games")
-st.write("View all games assigned to you as a stat keeper.")
+st.write("View all games assigned to you as a stat keeper. Select a game to start the stat-keeping workflow.")
 
 # Stat keeper ID
 STAT_KEEPER_ID = 1
@@ -48,7 +48,7 @@ if not all_games:
     st.stop()
 
 # Tabs for upcoming and past games
-tab1, tab2 = st.tabs(["📅 Upcoming Games", "📋 Past Games"])
+tab1, tab2 = st.tabs(["📅 Upcoming Games", "📊 Past Games"])
 
 with tab1:
     st.subheader("Upcoming Games")
@@ -112,7 +112,7 @@ with tab1:
                     if game.get('home_team') and game.get('away_team'):
                         if st.button("Start Live Entry", key=f"start_{game['game_id']}_{idx}", use_container_width=True):
                             st.session_state['selected_game_id'] = game['game_id']
-                            st.switch_page('pages/01_Live_Stat_Entry.py')
+                            st.switch_page('pages/02_Live_Stat_Entry.py')
                     else:
                         st.button("Start Live Entry", key=f"start_{game['game_id']}_{idx}", use_container_width=True, disabled=True)
                         st.caption("Teams required")
@@ -123,7 +123,6 @@ with tab1:
 
 with tab2:
     st.subheader("Past Games")
-    st.caption("Games that have been played and are available for viewing and analysis.")
     
     if past_games:
         # Add dropdown to limit number of games shown
@@ -194,17 +193,17 @@ with tab2:
                     with col_view:
                         if st.button("View", key=f"view_{game['game_id']}_{idx}", use_container_width=True):
                             st.session_state['selected_game_id'] = game['game_id']
-                            st.switch_page('pages/02_Game_Finalization.py')
+                            st.switch_page('pages/03_Game_Finalization.py')
                     
                     with col_finalize:
                         if home_score is None or away_score is None:
                             if st.button("Finalize", key=f"finalize_{game['game_id']}_{idx}", use_container_width=True):
                                 st.session_state['selected_game_id'] = game['game_id']
-                                st.switch_page('pages/02_Game_Finalization.py')
+                                st.switch_page('pages/03_Game_Finalization.py')
                 
                 st.divider()
     else:
-        st.info("No finalized games yet. Finalize games from the 'Game Finalization' page to make them available here.")
+        st.info("No past games recorded.")
 
 # Summary statistics
 st.divider()
@@ -219,12 +218,8 @@ with col2:
     st.metric("Upcoming", len(upcoming_games))
 
 with col3:
-    st.metric("Finalized", len(past_games))
+    st.metric("Past", len(past_games))
 
 with col4:
-    # Count games that need finalization (have teams but no scores)
-    needs_finalization = sum(1 for g in upcoming_games + past_games 
-                             if g.get('home_team') and g.get('away_team') 
-                             and (g.get('home_score') is None or g.get('away_score') is None))
-    st.metric("Need Finalization", needs_finalization)
-
+    finalized_count = sum(1 for g in past_games if g.get('home_score') is not None and g.get('away_score') is not None)
+    st.metric("Finalized", finalized_count)

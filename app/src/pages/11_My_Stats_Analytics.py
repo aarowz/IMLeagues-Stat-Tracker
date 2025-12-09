@@ -10,8 +10,8 @@ st.set_page_config(layout='wide')
 st.title("My Stats & Analytics")
 st.write("View your personal statistics and league rankings.")
 
-# Player ID - using default for now (player_id 2 is Joey Smith)
-PLAYER_ID = 2
+# Player ID - get from session state (set during login)
+PLAYER_ID = st.session_state.get('player_id', 2)  # Default to 2 if not set
 API_BASE = "http://web-api:4000/player"
 ADMIN_API_BASE = "http://web-api:4000/system-admin"
 

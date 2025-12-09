@@ -13,18 +13,18 @@ st.write('')
 st.write('')
 st.write('### What would you like to do today?')
 
+# Workflow: My Assigned Games → Live Stat Entry → Game Finalization
+if st.button('My Assigned Games', 
+             type='primary',
+             use_container_width=True):
+    st.switch_page('pages/01_My_Assigned_Games.py')
+
 if st.button('Live Stat Entry', 
              type='primary',
              use_container_width=True):
-    st.switch_page('pages/01_Live_Stat_Entry.py')
+    st.switch_page('pages/02_Live_Stat_Entry.py')
 
 if st.button('Game Finalization', 
              type='primary',
              use_container_width=True):
-    st.switch_page('pages/02_Game_Finalization.py')
-
-if st.button('My Assigned Games', 
-             type='primary',
-             use_container_width=True):
-    st.switch_page('pages/03_My_Assigned_Games.py')
-
+    st.switch_page('pages/03_Game_Finalization.py')

@@ -28,7 +28,7 @@ def calculate_points_from_description(description, sport_name):
     
     # Soccer/Football scoring
     elif 'soccer' in sport_name.lower() or 'football' in sport_name.lower():
-        if 'goal' in description_lower:
+        if 'goal' in description_lower or 'penalty' in description_lower:
             points = 1
     
     # Volleyball scoring
@@ -54,14 +54,12 @@ def calculate_points_from_description(description, sport_name):
 
 def recalculate_game_score(cursor, game_id):
     """Recalculate game score from all stat events"""
-    # Get game info
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Get game info and all teams playing in this game
     cursor.execute("""
-        SELECT g.home_score, g.away_score,
-               (SELECT tg.team_id FROM Teams_Games tg 
-                WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) AS home_team_id,
-               (SELECT tg.team_id FROM Teams_Games tg 
-                WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) AS away_team_id,
-               s.name AS sport_name
+        SELECT g.home_score, g.away_score, s.name AS sport_name
         FROM Games g
         JOIN Leagues l ON g.league_played = l.league_id
         JOIN Sports s ON l.sport_played = s.sport_id
@@ -72,31 +70,40 @@ def recalculate_game_score(cursor, game_id):
     if not game_data:
         return False
     
-    home_team_id = game_data.get('home_team_id')
-    away_team_id = game_data.get('away_team_id')
     sport_name = game_data.get('sport_name', '')
+    
+    # Get all teams playing in this game (home and away)
+    cursor.execute("""
+        SELECT team_id, is_home_team
+        FROM Teams_Games
+        WHERE game_id = %s
+    """, (game_id,))
+    
+    teams_in_game = cursor.fetchall()
+    if not teams_in_game:
+        return False
+    
+    # Separate home and away teams (games can have multiple teams, but we track home_score/away_score)
+    home_team_ids = [t['team_id'] for t in teams_in_game if t.get('is_home_team')]
+    away_team_ids = [t['team_id'] for t in teams_in_game if not t.get('is_home_team')]
+    
+    # For score calculation, use first home/away team if multiple exist
+    home_team_id = home_team_ids[0] if home_team_ids else None
+    away_team_id = away_team_ids[0] if away_team_ids else None
     
     if not home_team_id or not away_team_id:
         return False
     
-    # Get all stat events for this game with player team info
-    # Use Teams_Games to get the team for each player in this specific game
+    # Get all stat events for this game
     cursor.execute("""
-        SELECT se.description, 
-               COALESCE(
-                   (SELECT tg.team_id 
-                    FROM Teams_Games tg 
-                    JOIN Teams_Players tp ON tg.team_id = tp.team_id
-                    WHERE tg.game_id = %s AND tp.player_id = se.performed_by
-                    LIMIT 1),
-                   NULL
-               ) AS team_id,
-               se.performed_by
+        SELECT se.description, se.performed_by, se.event_id
         FROM StatEvent se
         WHERE se.scored_during = %s
-    """, (game_id, game_id))
+        ORDER BY se.time_entered ASC
+    """, (game_id,))
     
     stat_events = cursor.fetchall()
+    logger.info(f"Recalculating score for game {game_id}: Found {len(stat_events)} stat events")
     
     # Calculate scores - start from 0 and add all points from stat events
     home_score = 0
@@ -104,29 +111,57 @@ def recalculate_game_score(cursor, game_id):
     
     for event in stat_events:
         points = calculate_points_from_description(event['description'], sport_name)
-        if points > 0 and event.get('team_id'):
-            team_id = event['team_id']
-            if team_id == home_team_id:
-                home_score += points
-            elif team_id == away_team_id:
-                away_score += points
-            # If team_id doesn't match either team, try to find it another way
-            elif event.get('performed_by'):
-                # Fallback: try to get team from player directly
+        player_id = event.get('performed_by')
+        
+        if points > 0 and player_id:
+            # First try: Find team using Teams_Games (team must be in this game)
+            cursor.execute("""
+                SELECT tp.team_id
+                FROM Players p
+                JOIN Teams_Players tp ON p.player_id = tp.player_id
+                JOIN Teams_Games tg ON tp.team_id = tg.team_id
+                WHERE p.player_id = %s AND tg.game_id = %s
+                LIMIT 1
+            """, (player_id, game_id))
+            
+            player_team = cursor.fetchone()
+            team_id = None
+            
+            if player_team:
+                team_id = player_team['team_id']
+            else:
+                # Fallback: Find player's team from Teams_Players, then check if it's in the game
                 cursor.execute("""
                     SELECT tp.team_id
-                    FROM Teams_Players tp
-                    JOIN Teams_Games tg ON tp.team_id = tg.team_id
-                    WHERE tp.player_id = %s AND tg.game_id = %s
+                    FROM Players p
+                    JOIN Teams_Players tp ON p.player_id = tp.player_id
+                    WHERE p.player_id = %s
                     LIMIT 1
-                """, (event['performed_by'], game_id))
+                """, (player_id,))
+                
                 fallback_team = cursor.fetchone()
                 if fallback_team:
                     fallback_team_id = fallback_team['team_id']
-                    if fallback_team_id == home_team_id:
-                        home_score += points
-                    elif fallback_team_id == away_team_id:
-                        away_score += points
+                    # Check if this team is playing in the game
+                    if fallback_team_id in [t['team_id'] for t in teams_in_game]:
+                        team_id = fallback_team_id
+            
+            if team_id:
+                # Check if team is home or away (handle multiple teams)
+                if team_id in home_team_ids:
+                    home_score += points
+                    logger.debug(f"Event {event.get('event_id')}: Added {points} to home team (player {player_id}, team {team_id})")
+                elif team_id in away_team_ids:
+                    away_score += points
+                    logger.debug(f"Event {event.get('event_id')}: Added {points} to away team (player {player_id}, team {team_id})")
+                else:
+                    logger.warning(f"Event {event.get('event_id')}: Player {player_id} team {team_id} is in game but not classified as home/away")
+            else:
+                logger.warning(f"Event {event.get('event_id')}: Could not find team for player {player_id} in game {game_id} - event skipped")
+        elif points == 0:
+            logger.debug(f"Event {event.get('event_id')}: No points calculated from description '{event.get('description')}'")
+    
+    logger.info(f"Final calculated scores: Home={home_score}, Away={away_score}")
     
     # Update game scores - this recalculates from ALL stat events, so it's cumulative
     cursor.execute("UPDATE Games SET home_score = %s, away_score = %s WHERE game_id = %s", 
@@ -483,9 +518,9 @@ def create_stat_event(game_id):
             cursor.close()
             return jsonify({"error": "Missing required fields: performed_by, description"}), 400
         
-        # Check if player exists and get their team
+        # Check if player exists and get their team (must be playing in this game)
         cursor.execute("""
-            SELECT tp.team_id
+            SELECT tp.team_id, tg.is_home_team
             FROM Players p
             JOIN Teams_Players tp ON p.player_id = tp.player_id
             JOIN Teams_Games tg ON tp.team_id = tg.team_id
@@ -496,7 +531,15 @@ def create_stat_event(game_id):
         player_team = cursor.fetchone()
         if not player_team:
             cursor.close()
-            return jsonify({"error": "Player not found or not in this game"}), 404
+            # Get player name for better error message
+            cursor = db.get_db().cursor()
+            cursor.execute("SELECT first_name, last_name FROM Players WHERE player_id = %s", (data["performed_by"],))
+            player_info = cursor.fetchone()
+            player_name = f"{player_info['first_name']} {player_info['last_name']}" if player_info else f"Player ID {data['performed_by']}"
+            cursor.close()
+            return jsonify({
+                "error": f"Player {player_name} is not on a team playing in this game. Players must be on a team that is participating in the game to record stats."
+            }), 404
         
         player_team_id = player_team['team_id']
         home_team_id = game_data.get('home_team_id')

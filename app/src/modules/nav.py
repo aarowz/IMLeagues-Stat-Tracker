@@ -20,14 +20,14 @@ def StatkeeperHomeNav():
         "pages/00_Statkeeper_Home.py", label="Statkeeper Home", icon="📋"
     )
 
+def MyAssignedGamesNav():
+    st.sidebar.page_link("pages/01_My_Assigned_Games.py", label="My Assigned Games", icon="📅")
+
 def LiveStatEntryNav():
-    st.sidebar.page_link("pages/01_Live_Stat_Entry.py", label="Live Stat Entry", icon="⚡")
+    st.sidebar.page_link("pages/02_Live_Stat_Entry.py", label="Live Stat Entry", icon="⚡")
 
 def GameFinalizationNav():
-    st.sidebar.page_link("pages/02_Game_Finalization.py", label="Game Finalization", icon="✅")
-
-def MyAssignedGamesNav():
-    st.sidebar.page_link("pages/03_My_Assigned_Games.py", label="My Assigned Games", icon="📅")
+    st.sidebar.page_link("pages/03_Game_Finalization.py", label="Game Finalization", icon="✅")
 
 
 #### ------------------------ Player Role ------------------------
@@ -102,12 +102,12 @@ def SideBarLinks(show_home=False):
     # Show the other page navigators depending on the users' role.
     if st.session_state["authenticated"]:
 
-        # If the user is a statkeeper, show statkeeper pages
+        # If the user is a statkeeper, show statkeeper pages (workflow order)
         if st.session_state["role"] == "statkeeper":
             StatkeeperHomeNav()
+            MyAssignedGamesNav()
             LiveStatEntryNav()
             GameFinalizationNav()
-            MyAssignedGamesNav()
 
         # If the user is a player, show player pages
         if st.session_state["role"] == "player":
