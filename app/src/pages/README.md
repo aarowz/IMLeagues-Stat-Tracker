@@ -8,4 +8,6 @@ TODO: Describe the pages folder and include link to documentation. Don't forget 
 
 ## Pages
 
-The pages are organized by Role. Pages that start with a `0` are related to the Stat Keeper role. Pages that start with a `1` are related to the Player role or Team Captain role. Pages that start with a `2` are related to The System Administrator role. 
+The pages are organized by Role using numerical prefixes to control their order in the Streamlit sidebar. Pages that start with a `0` are related to the Stat Keeper role. Pages that start with a `1` are related to the Player role or Team Captain role. Pages that start with a `2` are related to the System Administrator role.
+
+Streamlit automatically discovers and orders pages alphanumerically by filename. For more information about how Streamlit's multi-page apps work, see the [official Streamlit documentation](https://docs.streamlit.io/library/get-started/multipage-apps).
