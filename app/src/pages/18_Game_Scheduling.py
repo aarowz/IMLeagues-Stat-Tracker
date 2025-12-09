@@ -226,22 +226,60 @@ with tab3:
     
     with st.form("schedule_game_form"):
         try:
-            leagues = [{"league_id": 1, "name": "Fall Basketball League"}]
-            teams = [
-                {"team_id": 1, "name": "Duncan's Dunkers"},
-                {"team_id": 2, "name": "Thunder Bolts"},
-                {"team_id": 3, "name": "Sky Hawks"},
-                {"team_id": 4, "name": "Fire Dragons"}
-            ]
+            # Fetch leagues from API
+            leagues_response = requests.get(f"{API_BASE}/leagues")
+            if leagues_response.status_code == 200:
+                leagues = leagues_response.json()
+            else:
+                st.error(f"Error fetching leagues: {leagues_response.status_code}")
+                leagues = []
             
-            selected_league = st.selectbox("League", options=leagues, format_func=lambda x: x["name"])
+            if not leagues:
+                st.warning("No leagues available. Please contact system admin.")
+                st.stop()
+            
+            selected_league = st.selectbox("League", options=leagues, format_func=lambda x: f"{x['name']} ({x.get('semester', 'N/A')} {x.get('year', 'N/A')})", key="schedule_league_select")
+            
             game_date = st.date_input("Game Date", min_value=date.today())
             game_time = st.time_input("Start Time")
             location = st.text_input("Location")
             
-            opponent_teams = [t for t in teams if t["team_id"] != TEAM_ID]
-            opponent = st.selectbox("Opponent", options=opponent_teams, format_func=lambda x: x["name"])
-            is_home = st.radio("Home or Away?", ["Home", "Away"])
+            # Fetch teams in the selected league
+            opponent_teams = []
+            if selected_league and 'league_id' in selected_league:
+                try:
+                    league_id = selected_league['league_id']
+                    teams_response = requests.get(f"{API_BASE}/leagues/{league_id}/teams")
+                    if teams_response.status_code == 200:
+                        all_teams = teams_response.json()
+                        if all_teams and len(all_teams) > 0:
+                            # Filter out the current team
+                            opponent_teams = [t for t in all_teams if t.get("team_id") != TEAM_ID]
+                            if not opponent_teams and len(all_teams) == 1:
+                                st.info(f"Only your team ({TEAM_ID}) is in this league. You need at least one opponent team to schedule a game.")
+                            elif not opponent_teams:
+                                st.warning(f"All teams in this league are filtered out. (Your team ID: {TEAM_ID}, Teams found: {[t.get('team_id') for t in all_teams]})")
+                        else:
+                            st.info(f"No teams found in {selected_league.get('name', 'this league')}.")
+                    elif teams_response.status_code == 404:
+                        st.warning(f"League not found.")
+                    else:
+                        try:
+                            error_data = teams_response.json()
+                            st.warning(f"Error fetching teams: {error_data.get('error', f'HTTP {teams_response.status_code}')}")
+                        except:
+                            st.warning(f"Error fetching teams: HTTP {teams_response.status_code} - {teams_response.text[:200]}")
+                except Exception as e:
+                    st.error(f"Error fetching teams: {str(e)}")
+            
+            opponent = None
+            is_home = None
+            if opponent_teams:
+                opponent = st.selectbox("Opponent", options=opponent_teams, format_func=lambda x: x["name"], key="schedule_opponent_select")
+                is_home = st.radio("Home or Away?", ["Home", "Away"], key="schedule_home_away")
+            elif selected_league and 'league_id' in selected_league:
+                st.warning(f"No opponent teams available in {selected_league.get('name', 'this league')}.")
+            
             st.divider()
             st.write("**Assign Stat Keeper (Optional):**")
             try:
@@ -259,57 +297,99 @@ with tab3:
                 st.info("No stat keepers available.")
             
             if st.form_submit_button("Schedule Game", type="primary"):
-                try:
-                    formatted_date = game_date.strftime('%Y-%m-%d')
-                    formatted_time = game_time.strftime('%H:%M:%S')
-                    
-                    game_data = {
-                        "league_played": selected_league["league_id"],
-                        "date_played": formatted_date,
-                        "start_time": formatted_time,
-                        "location": location,
-                        "home_team_id": TEAM_ID if is_home == "Home" else opponent["team_id"],
-                        "away_team_id": opponent["team_id"] if is_home == "Home" else TEAM_ID
-                    }
-                    
-                    response = requests.post(f"{API_BASE}/games", json=game_data)
-                    if response.status_code == 201:
-                        game_result = response.json()
-                        new_game_id = game_result.get("game_id")
-                        if selected_keeper_id and new_game_id:
-                            try:
-                                keeper_response = requests.post(
-                                    f"{API_BASE}/games/{new_game_id}/stat-keepers",
-                                    json={"keeper_id": selected_keeper_id}
-                                )
-                                if keeper_response.status_code == 201:
-                                    st.success("Game scheduled and stat keeper assigned successfully!")
-                                else:
+                if not selected_league:
+                    st.error("Please select a league.")
+                elif not opponent_teams:
+                    st.error("No opponent teams available in the selected league.")
+                elif not opponent:
+                    st.error("Please select an opponent team.")
+                elif not location:
+                    st.error("Please enter a location.")
+                elif is_home is None:
+                    st.error("Please select Home or Away.")
+                else:
+                    try:
+                        formatted_date = game_date.strftime('%Y-%m-%d')
+                        formatted_time = game_time.strftime('%H:%M:%S')
+                        
+                        game_data = {
+                            "league_played": selected_league["league_id"],
+                            "date_played": formatted_date,
+                            "start_time": formatted_time,
+                            "location": location,
+                            "home_team_id": TEAM_ID if is_home == "Home" else opponent["team_id"],
+                            "away_team_id": opponent["team_id"] if is_home == "Home" else TEAM_ID
+                        }
+                        
+                        response = requests.post(f"{API_BASE}/games", json=game_data)
+                        if response.status_code == 201:
+                            game_result = response.json()
+                            new_game_id = game_result.get("game_id")
+                            if selected_keeper_id and new_game_id:
+                                try:
+                                    keeper_response = requests.post(
+                                        f"{API_BASE}/games/{new_game_id}/stat-keepers",
+                                        json={"keeper_id": selected_keeper_id}
+                                    )
+                                    if keeper_response.status_code == 201:
+                                        st.success("Game scheduled and stat keeper assigned successfully!")
+                                    else:
+                                        st.success("Game scheduled successfully!")
+                                        st.warning(f"Stat keeper assignment failed: {keeper_response.json().get('error', 'Unknown error')}")
+                                except Exception as e:
                                     st.success("Game scheduled successfully!")
-                                    st.warning(f"Stat keeper assignment failed: {keeper_response.json().get('error', 'Unknown error')}")
-                            except Exception as e:
+                                    st.warning(f"Stat keeper assignment failed: {str(e)}")
+                            else:
                                 st.success("Game scheduled successfully!")
-                                st.warning(f"Stat keeper assignment failed: {str(e)}")
+                            st.rerun()
                         else:
-                            st.success("Game scheduled successfully!")
-                        st.rerun()
-                    else:
-                        try:
-                            error_msg = response.json().get('error', f'HTTP {response.status_code}: {response.text[:200]}')
-                        except:
-                            error_msg = f'HTTP {response.status_code}: {response.text[:200]}'
-                        st.error(f"Error scheduling game: {error_msg}")
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                            try:
+                                error_msg = response.json().get('error', f'HTTP {response.status_code}: {response.text[:200]}')
+                            except:
+                                error_msg = f'HTTP {response.status_code}: {response.text[:200]}'
+                            st.error(f"Error scheduling game: {error_msg}")
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
         except Exception as e:
             st.error(f"Error loading form data: {str(e)}")
 
 with tab4:
     st.subheader("Send Reminders to Teammates")
-    st.write("Send reminders to your teammates to log their stats after games.")
+    st.write("Send reminders to your teammates to log their stats after games. This demonstrates user story Miles-4: sending reminders to teammates to record their stats so that no data is missing.")
+    
+    # Get team info for dropdown - fetch from API to ensure valid team IDs
+    try:
+        # Try to get team info from the summary endpoint to validate team exists
+        team_summary_response = requests.get(f"{API_BASE}/teams/{TEAM_ID}/summary")
+        if team_summary_response.status_code == 200:
+            team_summary = team_summary_response.json()
+            teams = [{"team_id": TEAM_ID, "name": team_summary.get("name", "My Team")}]
+        else:
+            # Fallback: try to get teams from system admin API
+            try:
+                admin_api_base = "http://web-api:4000/system-admin"
+                admin_teams_response = requests.get(f"{admin_api_base}/teams")
+                if admin_teams_response.status_code == 200:
+                    admin_teams = admin_teams_response.json()
+                    teams = [{"team_id": t["team_id"], "name": t["name"]} for t in admin_teams[:5]]  # Limit to first 5
+                else:
+                    teams = [{"team_id": TEAM_ID, "name": "Team " + str(TEAM_ID)}]
+            except:
+                teams = [{"team_id": TEAM_ID, "name": "Team " + str(TEAM_ID)}]
+        
+        selected_team = st.selectbox(
+            "Select Team",
+            options=teams,
+            format_func=lambda x: x["name"],
+            key="reminder_team_select"
+        )
+        selected_team_id = selected_team["team_id"] if selected_team else TEAM_ID
+    except Exception as e:
+        st.warning(f"Could not fetch team info: {str(e)}. Using default team ID {TEAM_ID}.")
+        selected_team_id = TEAM_ID
     
     try:
-        upcoming_response = requests.get(f"{API_BASE}/teams/{TEAM_ID}/games?upcoming_only=true")
+        upcoming_response = requests.get(f"{API_BASE}/teams/{selected_team_id}/games?upcoming_only=true")
         if upcoming_response.status_code == 200:
             upcoming_games = upcoming_response.json()
         else:
@@ -321,8 +401,9 @@ with tab4:
     with st.form("reminder_form"):
         reminder_message = st.text_area(
             "Reminder Message",
-            value="Don't forget to log your stats for tonight's game!",
-            height=100
+            value="Don't forget to log your stats from today's game!",
+            height=100,
+            key="reminder_message"
         )
         
         if upcoming_games:
@@ -340,14 +421,14 @@ with tab4:
             try:
                 reminder_data = {
                     "message": reminder_message,
-                    "team_id": TEAM_ID
+                    "team_id": selected_team_id
                 }
                 if game_id_for_reminder:
                     reminder_data["game_id"] = game_id_for_reminder
                 
                 response = requests.post(f"{API_BASE}/reminders", json=reminder_data)
                 if response.status_code == 201:
-                    st.success("Reminder sent successfully!")
+                    st.success("✅ Reminder sent successfully! The team will receive this notification to prompt stat entry via our POST /reminders route.")
                     st.rerun()
                 else:
                     try:
@@ -361,7 +442,7 @@ with tab4:
     st.divider()
     st.write("**Recent Reminders:**")
     try:
-        reminders_response = requests.get(f"{API_BASE}/teams/{TEAM_ID}/reminders")
+        reminders_response = requests.get(f"{API_BASE}/teams/{selected_team_id}/reminders")
         if reminders_response.status_code == 200:
             reminders = reminders_response.json()
             if reminders:

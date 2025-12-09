@@ -6,6 +6,170 @@ from datetime import datetime, timedelta, date, time
 stat_keeper = Blueprint("stat_keeper", __name__)
 
 
+def calculate_points_from_description(description, sport_name):
+    """Calculate points from a stat event description based on sport type"""
+    description_lower = description.lower()
+    points = 0
+    
+    # Basketball scoring
+    if 'basketball' in sport_name.lower():
+        if '3 points' in description_lower or '3-point' in description_lower or 'three point' in description_lower:
+            points = 3
+        elif '2 points' in description_lower or '2-point' in description_lower or 'two point' in description_lower:
+            points = 2
+        elif '1 point' in description_lower or 'free throw' in description_lower or 'one point' in description_lower:
+            points = 1
+        elif 'point' in description_lower and ('3' in description_lower or 'three' in description_lower):
+            points = 3
+        elif 'point' in description_lower and ('2' in description_lower or 'two' in description_lower):
+            points = 2
+        elif 'point' in description_lower:
+            points = 1  # Default to 1 point if just "point" is mentioned
+    
+    # Soccer/Football scoring
+    elif 'soccer' in sport_name.lower() or 'football' in sport_name.lower():
+        if 'goal' in description_lower or 'penalty' in description_lower:
+            points = 1
+    
+    # Volleyball scoring
+    elif 'volleyball' in sport_name.lower():
+        if 'point' in description_lower:
+            points = 1
+    
+    # Generic scoring (for other sports)
+    else:
+        if 'goal' in description_lower:
+            points = 1
+        elif 'point' in description_lower:
+            # Try to extract number from description
+            import re
+            point_match = re.search(r'(\d+)\s*point', description_lower)
+            if point_match:
+                points = int(point_match.group(1))
+            else:
+                points = 1  # Default to 1 point
+    
+    return points
+
+
+def recalculate_game_score(cursor, game_id):
+    """Recalculate game score from all stat events"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Get game info and all teams playing in this game
+    cursor.execute("""
+        SELECT g.home_score, g.away_score, s.name AS sport_name
+        FROM Games g
+        JOIN Leagues l ON g.league_played = l.league_id
+        JOIN Sports s ON l.sport_played = s.sport_id
+        WHERE g.game_id = %s
+    """, (game_id,))
+    
+    game_data = cursor.fetchone()
+    if not game_data:
+        return False
+    
+    sport_name = game_data.get('sport_name', '')
+    
+    # Get all teams playing in this game (home and away)
+    cursor.execute("""
+        SELECT team_id, is_home_team
+        FROM Teams_Games
+        WHERE game_id = %s
+    """, (game_id,))
+    
+    teams_in_game = cursor.fetchall()
+    if not teams_in_game:
+        return False
+    
+    # Separate home and away teams (games can have multiple teams, but we track home_score/away_score)
+    home_team_ids = [t['team_id'] for t in teams_in_game if t.get('is_home_team')]
+    away_team_ids = [t['team_id'] for t in teams_in_game if not t.get('is_home_team')]
+    
+    # For score calculation, use first home/away team if multiple exist
+    home_team_id = home_team_ids[0] if home_team_ids else None
+    away_team_id = away_team_ids[0] if away_team_ids else None
+    
+    if not home_team_id or not away_team_id:
+        return False
+    
+    # Get all stat events for this game
+    cursor.execute("""
+        SELECT se.description, se.performed_by, se.event_id
+        FROM StatEvent se
+        WHERE se.scored_during = %s
+        ORDER BY se.time_entered ASC
+    """, (game_id,))
+    
+    stat_events = cursor.fetchall()
+    logger.info(f"Recalculating score for game {game_id}: Found {len(stat_events)} stat events")
+    
+    # Calculate scores - start from 0 and add all points from stat events
+    home_score = 0
+    away_score = 0
+    
+    for event in stat_events:
+        points = calculate_points_from_description(event['description'], sport_name)
+        player_id = event.get('performed_by')
+        
+        if points > 0 and player_id:
+            # First try: Find team using Teams_Games (team must be in this game)
+            cursor.execute("""
+                SELECT tp.team_id
+                FROM Players p
+                JOIN Teams_Players tp ON p.player_id = tp.player_id
+                JOIN Teams_Games tg ON tp.team_id = tg.team_id
+                WHERE p.player_id = %s AND tg.game_id = %s
+                LIMIT 1
+            """, (player_id, game_id))
+            
+            player_team = cursor.fetchone()
+            team_id = None
+            
+            if player_team:
+                team_id = player_team['team_id']
+            else:
+                # Fallback: Find player's team from Teams_Players, then check if it's in the game
+                cursor.execute("""
+                    SELECT tp.team_id
+                    FROM Players p
+                    JOIN Teams_Players tp ON p.player_id = tp.player_id
+                    WHERE p.player_id = %s
+                    LIMIT 1
+                """, (player_id,))
+                
+                fallback_team = cursor.fetchone()
+                if fallback_team:
+                    fallback_team_id = fallback_team['team_id']
+                    # Check if this team is playing in the game
+                    if fallback_team_id in [t['team_id'] for t in teams_in_game]:
+                        team_id = fallback_team_id
+            
+            if team_id:
+                # Check if team is home or away (handle multiple teams)
+                if team_id in home_team_ids:
+                    home_score += points
+                    logger.debug(f"Event {event.get('event_id')}: Added {points} to home team (player {player_id}, team {team_id})")
+                elif team_id in away_team_ids:
+                    away_score += points
+                    logger.debug(f"Event {event.get('event_id')}: Added {points} to away team (player {player_id}, team {team_id})")
+                else:
+                    logger.warning(f"Event {event.get('event_id')}: Player {player_id} team {team_id} is in game but not classified as home/away")
+            else:
+                logger.warning(f"Event {event.get('event_id')}: Could not find team for player {player_id} in game {game_id} - event skipped")
+        elif points == 0:
+            logger.debug(f"Event {event.get('event_id')}: No points calculated from description '{event.get('description')}'")
+    
+    logger.info(f"Final calculated scores: Home={home_score}, Away={away_score}")
+    
+    # Update game scores - this recalculates from ALL stat events, so it's cumulative
+    cursor.execute("UPDATE Games SET home_score = %s, away_score = %s WHERE game_id = %s", 
+                   (home_score, away_score, game_id))
+    
+    return True
+
+
 def convert_datetime_for_json(data):
     if isinstance(data, list):
         for item in data:
@@ -87,19 +251,12 @@ def get_stat_keeper_games(keeper_id):
             # Return all games, no filtering
             query += " ORDER BY has_both_teams DESC, g.date_played DESC, g.start_time DESC"
         elif upcoming_only:
-            # Upcoming: future games that haven't been finalized
-            query += " AND g.date_played > CURDATE() AND (g.home_score IS NULL OR g.away_score IS NULL)"
+            # Upcoming: future games (regardless of finalization status)
+            query += " AND g.date_played >= CURDATE()"
             query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
         else:
-            # Past: finalized games (regardless of date) - these are the official records
-            # Only include games that have both teams assigned
-            query += """ AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
-                         AND (SELECT t.team_id FROM Teams_Games tg 
-                              JOIN Teams t ON tg.team_id = t.team_id 
-                              WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) IS NOT NULL
-                         AND (SELECT t.team_id FROM Teams_Games tg 
-                              JOIN Teams t ON tg.team_id = t.team_id 
-                              WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) IS NOT NULL"""
+            # Past: past games (regardless of finalization status)
+            query += " AND g.date_played < CURDATE()"
             query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
         
         cursor.execute(query, params)
@@ -337,9 +494,22 @@ def create_stat_event(game_id):
         
         cursor = db.get_db().cursor()
         
-        # Check if game exists
-        cursor.execute("SELECT game_id FROM Games WHERE game_id = %s", (game_id,))
-        if not cursor.fetchone():
+        # Check if game exists and get current scores and team info
+        cursor.execute("""
+            SELECT g.home_score, g.away_score,
+                   (SELECT tg.team_id FROM Teams_Games tg 
+                    WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) AS home_team_id,
+                   (SELECT tg.team_id FROM Teams_Games tg 
+                    WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) AS away_team_id,
+                   s.name AS sport_name
+            FROM Games g
+            JOIN Leagues l ON g.league_played = l.league_id
+            JOIN Sports s ON l.sport_played = s.sport_id
+            WHERE g.game_id = %s
+        """, (game_id,))
+        
+        game_data = cursor.fetchone()
+        if not game_data:
             cursor.close()
             return jsonify({"error": "Game not found"}), 404
         
@@ -348,11 +518,33 @@ def create_stat_event(game_id):
             cursor.close()
             return jsonify({"error": "Missing required fields: performed_by, description"}), 400
         
-        # Check if player exists
-        cursor.execute("SELECT player_id FROM Players WHERE player_id = %s", (data["performed_by"],))
-        if not cursor.fetchone():
+        # Check if player exists and get their team (must be playing in this game)
+        cursor.execute("""
+            SELECT tp.team_id, tg.is_home_team
+            FROM Players p
+            JOIN Teams_Players tp ON p.player_id = tp.player_id
+            JOIN Teams_Games tg ON tp.team_id = tg.team_id
+            WHERE p.player_id = %s AND tg.game_id = %s
+            LIMIT 1
+        """, (data["performed_by"], game_id))
+        
+        player_team = cursor.fetchone()
+        if not player_team:
             cursor.close()
-            return jsonify({"error": "Player not found"}), 404
+            # Get player name for better error message
+            cursor = db.get_db().cursor()
+            cursor.execute("SELECT first_name, last_name FROM Players WHERE player_id = %s", (data["performed_by"],))
+            player_info = cursor.fetchone()
+            player_name = f"{player_info['first_name']} {player_info['last_name']}" if player_info else f"Player ID {data['performed_by']}"
+            cursor.close()
+            return jsonify({
+                "error": f"Player {player_name} is not on a team playing in this game. Players must be on a team that is participating in the game to record stats."
+            }), 404
+        
+        player_team_id = player_team['team_id']
+        home_team_id = game_data.get('home_team_id')
+        away_team_id = game_data.get('away_team_id')
+        sport_name = game_data.get('sport_name', '').lower()
         
         # Insert stat event
         insert_query = """
@@ -368,11 +560,20 @@ def create_stat_event(game_id):
         
         db.get_db().commit()
         event_id = cursor.lastrowid
+        
+        # Calculate points from description
+        points = calculate_points_from_description(data["description"], sport_name)
+        
+        # Recalculate game score from all stat events (including the new one)
+        recalculate_game_score(cursor, game_id)
+        
+        db.get_db().commit()
         cursor.close()
         
         return jsonify({
             "message": "Stat event created successfully",
-            "event_id": event_id
+            "event_id": event_id,
+            "points_added": points if points > 0 else None
         }), 201
     except Error as e:
         return jsonify({"error": str(e)}), 500
@@ -523,6 +724,11 @@ def update_stat_event(game_id, event_id):
         """
         
         cursor.execute(update_query, params)
+        
+        # Recalculate game score if description or player changed
+        if "description" in data or "performed_by" in data:
+            recalculate_game_score(cursor, game_id)
+        
         db.get_db().commit()
         cursor.close()
         
@@ -549,6 +755,10 @@ def delete_stat_event(game_id, event_id):
             "DELETE FROM StatEvent WHERE event_id = %s AND scored_during = %s",
             (event_id, game_id)
         )
+        
+        # Recalculate game score after deletion
+        recalculate_game_score(cursor, game_id)
+        
         db.get_db().commit()
         cursor.close()
         
