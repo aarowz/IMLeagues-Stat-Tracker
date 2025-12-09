@@ -91,7 +91,7 @@ try:
                     if team_players_response.status_code == 200:
                         team_players = team_players_response.json()
                         for tp in team_players:
-                            if tp.get('role') == 'captain':
+                            if tp.get('role', '').lower() == 'captain':
                                 # Add player info if not already added
                                 player_id = tp.get('player_id')
                                 if player_id and player_id not in captains_set:

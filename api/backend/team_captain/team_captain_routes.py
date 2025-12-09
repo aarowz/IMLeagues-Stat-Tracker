@@ -409,7 +409,10 @@ def get_team_performance_over_time(team_id):
                 LIMIT 1) AS result
         FROM Games g
         JOIN Teams_Games tg ON g.game_id = tg.game_id
-        WHERE tg.team_id = %s AND g.date_played < CURRENT_DATE()
+        WHERE tg.team_id = %s 
+          AND g.date_played < CURRENT_DATE()
+          AND g.home_score IS NOT NULL 
+          AND g.away_score IS NOT NULL
         ORDER BY g.date_played ASC
         """
         
@@ -984,17 +987,32 @@ def get_all_stat_keepers():
 
 @team_captain.route("/leagues", methods=["GET"])
 def get_all_leagues():
-    """Get all leagues for team captain to select from when scheduling games"""
+    """Get leagues for team captain. Optionally filter by team_id using query parameter."""
     try:
         cursor = db.get_db().cursor()
         
-        query = """
-        SELECT league_id, name, sport_played, semester, year
-        FROM Leagues
-        ORDER BY year DESC, semester DESC, name ASC
-        """
+        # Get optional team_id from query parameters
+        team_id = request.args.get("team_id", type=int)
         
-        cursor.execute(query)
+        if team_id:
+            # Filter leagues using SQL to only show leagues where this team participates
+            query = """
+            SELECT DISTINCT l.league_id, l.name, l.sport_played, l.semester, l.year
+            FROM Leagues l
+            JOIN Teams t ON l.league_id = t.league_played
+            WHERE t.team_id = %s
+            ORDER BY l.year DESC, l.semester DESC, l.name ASC
+            """
+            cursor.execute(query, (team_id,))
+        else:
+            # Return all leagues if no team_id specified (backward compatibility)
+            query = """
+            SELECT league_id, name, sport_played, semester, year
+            FROM Leagues
+            ORDER BY year DESC, semester DESC, name ASC
+            """
+            cursor.execute(query)
+        
         leagues = cursor.fetchall()
         cursor.close()
         
@@ -1007,7 +1025,8 @@ def get_all_leagues():
 
 @team_captain.route("/leagues/<int:league_id>/teams", methods=["GET"])
 def get_league_teams(league_id):
-    """Get all teams in a specific league for team captain to select opponents"""
+    """Get all teams in a specific league for team captain to select opponents.
+    Optionally filter out a specific team_id using query parameter 'exclude_team_id'."""
     try:
         cursor = db.get_db().cursor()
         
@@ -1016,14 +1035,24 @@ def get_league_teams(league_id):
             cursor.close()
             return jsonify({"error": "League not found"}), 404
         
+        # Get optional exclude_team_id from query parameters
+        exclude_team_id = request.args.get("exclude_team_id", type=int)
+        
         query = """
         SELECT team_id, name, league_played
         FROM Teams
         WHERE league_played = %s
-        ORDER BY name ASC
         """
+        params = [league_id]
         
-        cursor.execute(query, (league_id,))
+        # Add SQL filtering to exclude specific team if provided
+        if exclude_team_id:
+            query += " AND team_id != %s"
+            params.append(exclude_team_id)
+        
+        query += " ORDER BY name ASC"
+        
+        cursor.execute(query, tuple(params))
         teams = cursor.fetchall()
         cursor.close()
         

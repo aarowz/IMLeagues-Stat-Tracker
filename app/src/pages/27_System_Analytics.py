@@ -118,6 +118,61 @@ with tab1:
                 st.dataframe(display_days_df, use_container_width=True, hide_index=True)
             else:
                 st.info("No game date data available.")
+            
+            st.divider()
+            
+            # Most Active Teams
+            st.subheader("Most Active Teams")
+            active_teams = analytics_data.get('active_teams', [])
+            
+            if active_teams:
+                teams_df = pd.DataFrame(active_teams)
+                fig_teams = px.bar(
+                    teams_df,
+                    x='team_name',
+                    y='stat_count',
+                    title='Top 10 Teams by Stat Events',
+                    labels={'team_name': 'Team', 'stat_count': 'Stat Events'},
+                    color='stat_count',
+                    color_continuous_scale='Purples'
+                )
+                fig_teams.update_layout(showlegend=False, xaxis_title="Team", yaxis_title="Stat Events")
+                st.plotly_chart(fig_teams, use_container_width=True)
+                
+                st.write("**Top 10 Active Teams:**")
+                display_teams_df = teams_df[['team_name', 'stat_count']]
+                display_teams_df.columns = ['Team', 'Stat Events']
+                st.dataframe(display_teams_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No team activity data available.")
+            
+            st.divider()
+            
+            # Most Active Players
+            st.subheader("Most Active Players")
+            active_players = analytics_data.get('active_players', [])
+            
+            if active_players:
+                players_df = pd.DataFrame(active_players)
+                players_df['player_name'] = players_df['first_name'] + ' ' + players_df['last_name']
+                fig_players = px.bar(
+                    players_df,
+                    x='player_name',
+                    y='stat_count',
+                    title='Top 10 Players by Stat Events',
+                    labels={'player_name': 'Player', 'stat_count': 'Stat Events'},
+                    color='stat_count',
+                    color_continuous_scale='Oranges'
+                )
+                fig_players.update_layout(showlegend=False, xaxis_title="Player", yaxis_title="Stat Events")
+                st.plotly_chart(fig_players, use_container_width=True)
+                
+                st.write("**Top 10 Active Players:**")
+                display_players_df = players_df[['first_name', 'last_name', 'stat_count']]
+                display_players_df.columns = ['First Name', 'Last Name', 'Stat Events']
+                st.dataframe(display_players_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No player activity data available.")
         else:
             st.error(f"Error loading analytics: {analytics_response.json().get('error', 'Unknown error')}")
     except Exception as e:

@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import time as time_module
 from datetime import datetime, date, time
 from modules.nav import SideBarLinks
 
@@ -10,7 +11,7 @@ st.set_page_config(layout='wide')
 st.title("Game Scheduling & Management")
 st.write("Schedule new games and manage your team's upcoming and past games.")
 
-TEAM_ID = 1
+TEAM_ID = st.session_state.get('team_id', 1)
 API_BASE = "http://web-api:4000/team-captain"
 
 try:
@@ -226,8 +227,8 @@ with tab3:
     
     with st.form("schedule_game_form"):
         try:
-            # Fetch leagues from API
-            leagues_response = requests.get(f"{API_BASE}/leagues")
+            # Fetch leagues from API (filtered by team using SQL)
+            leagues_response = requests.get(f"{API_BASE}/leagues?team_id={TEAM_ID}")
             if leagues_response.status_code == 200:
                 leagues = leagues_response.json()
             else:
@@ -244,23 +245,32 @@ with tab3:
             game_time = st.time_input("Start Time")
             location = st.text_input("Location")
             
-            # Fetch teams in the selected league
+            # Fetch teams in the selected league (filtered by SQL to exclude current team)
             opponent_teams = []
+            captain_team_in_league = True  # Assume true since leagues are now pre-filtered
             if selected_league and 'league_id' in selected_league:
                 try:
                     league_id = selected_league['league_id']
-                    teams_response = requests.get(f"{API_BASE}/leagues/{league_id}/teams")
+                    # Use SQL filtering to exclude current team and get teams in league
+                    teams_response = requests.get(f"{API_BASE}/leagues/{league_id}/teams?exclude_team_id={TEAM_ID}")
                     if teams_response.status_code == 200:
-                        all_teams = teams_response.json()
-                        if all_teams and len(all_teams) > 0:
-                            # Filter out the current team
-                            opponent_teams = [t for t in all_teams if t.get("team_id") != TEAM_ID]
-                            if not opponent_teams and len(all_teams) == 1:
-                                st.info(f"Only your team ({TEAM_ID}) is in this league. You need at least one opponent team to schedule a game.")
+                        opponent_teams = teams_response.json()
+                        
+                        # Verify captain's team is in this league (safety check, should always pass since leagues are pre-filtered)
+                        captain_team_check = requests.get(f"{API_BASE}/leagues/{league_id}/teams")
+                        if captain_team_check.status_code == 200:
+                            all_teams_in_league = captain_team_check.json()
+                            captain_team_in_league = any(t.get("team_id") == TEAM_ID for t in all_teams_in_league)
+                            
+                            if not captain_team_in_league:
+                                st.error(f"Your team (ID: {TEAM_ID}) is not in the selected league '{selected_league.get('name', 'this league')}'. Please select a league that your team belongs to.")
                             elif not opponent_teams:
-                                st.warning(f"All teams in this league are filtered out. (Your team ID: {TEAM_ID}, Teams found: {[t.get('team_id') for t in all_teams]})")
+                                if len(all_teams_in_league) == 1:
+                                    st.info(f"Only your team is in this league. You need at least one opponent team to schedule a game.")
+                                else:
+                                    st.warning(f"No opponent teams available in {selected_league.get('name', 'this league')}.")
                         else:
-                            st.info(f"No teams found in {selected_league.get('name', 'this league')}.")
+                            st.warning(f"Could not verify if your team is in this league.")
                     elif teams_response.status_code == 404:
                         st.warning(f"League not found.")
                     else:
@@ -299,6 +309,8 @@ with tab3:
             if st.form_submit_button("Schedule Game", type="primary"):
                 if not selected_league:
                     st.error("Please select a league.")
+                elif not captain_team_in_league:
+                    st.error("Your team is not in the selected league. Please select a league that your team belongs to.")
                 elif not opponent_teams:
                     st.error("No opponent teams available in the selected league.")
                 elif not opponent:
@@ -341,6 +353,7 @@ with tab3:
                                     st.warning(f"Stat keeper assignment failed: {str(e)}")
                             else:
                                 st.success("Game scheduled successfully!")
+                            time_module.sleep(3)  # Show success message for 3 seconds
                             st.rerun()
                         else:
                             try:

@@ -2727,32 +2727,48 @@ def get_analytics_dashboard():
     try:
         cursor = db.get_db().cursor()
         
-        # Overall statistics
-        overall_query = """
-        SELECT 
-            COUNT(DISTINCT s.sport_id) AS total_sports,
-            COUNT(DISTINCT l.league_id) AS total_leagues,
-            COUNT(DISTINCT t.team_id) AS total_teams,
-            COUNT(DISTINCT p.player_id) AS total_players,
-            COUNT(DISTINCT g.game_id) AS total_games,
-            COUNT(DISTINCT sk.keeper_id) AS total_stat_keepers,
-            COUNT(se.event_id) AS total_stat_events
-        FROM Sports s
-        LEFT JOIN Leagues l ON s.sport_id = l.sport_played
-        LEFT JOIN Teams t ON l.league_id = t.league_played
-        LEFT JOIN Teams_Players tp ON t.team_id = tp.team_id
-        LEFT JOIN Players p ON tp.player_id = p.player_id
-        LEFT JOIN Games g ON l.league_id = g.league_played
-        LEFT JOIN StatEvent se ON g.game_id = se.scored_during
-        LEFT JOIN Stat_Keepers sk ON 1=1
-        """
+        # Overall statistics - split into separate queries to avoid cartesian products
+        stats = {}
         
-        cursor.execute(overall_query)
-        overall_stats = cursor.fetchone()
+        # Count sports
+        cursor.execute("SELECT COUNT(*) AS count FROM Sports")
+        result = cursor.fetchone()
+        stats['total_sports'] = result['count'] if result else 0
+        
+        # Count leagues
+        cursor.execute("SELECT COUNT(*) AS count FROM Leagues")
+        result = cursor.fetchone()
+        stats['total_leagues'] = result['count'] if result else 0
+        
+        # Count teams
+        cursor.execute("SELECT COUNT(*) AS count FROM Teams")
+        result = cursor.fetchone()
+        stats['total_teams'] = result['count'] if result else 0
+        
+        # Count players
+        cursor.execute("SELECT COUNT(*) AS count FROM Players")
+        result = cursor.fetchone()
+        stats['total_players'] = result['count'] if result else 0
+        
+        # Count games
+        cursor.execute("SELECT COUNT(*) AS count FROM Games")
+        result = cursor.fetchone()
+        stats['total_games'] = result['count'] if result else 0
+        
+        # Count stat keepers
+        cursor.execute("SELECT COUNT(*) AS count FROM Stat_Keepers")
+        result = cursor.fetchone()
+        stats['total_stat_keepers'] = result['count'] if result else 0
+        
+        # Count stat events
+        cursor.execute("SELECT COUNT(*) AS count FROM StatEvent")
+        result = cursor.fetchone()
+        stats['total_stat_events'] = result['count'] if result else 0
         
         # Most popular sports
         popular_sports_query = """
-        SELECT s.name AS sport_name, COUNT(DISTINCT l.league_id) AS league_count,
+        SELECT s.name AS sport_name, 
+               COUNT(DISTINCT l.league_id) AS league_count,
                COUNT(DISTINCT t.team_id) AS team_count,
                COUNT(DISTINCT g.game_id) AS game_count
         FROM Sports s
@@ -2779,16 +2795,48 @@ def get_analytics_dashboard():
         cursor.execute(busiest_days_query)
         busiest_days = cursor.fetchall()
         
+        # Additional analytics: Most active teams (by stat events)
+        active_teams_query = """
+        SELECT t.name AS team_name, COUNT(se.event_id) AS stat_count
+        FROM Teams t
+        JOIN Teams_Players tp ON t.team_id = tp.team_id
+        JOIN Players p ON tp.player_id = p.player_id
+        JOIN StatEvent se ON p.player_id = se.performed_by
+        GROUP BY t.team_id, t.name
+        ORDER BY stat_count DESC
+        LIMIT 10
+        """
+        
+        cursor.execute(active_teams_query)
+        active_teams = cursor.fetchall()
+        
+        # Additional analytics: Most active players (by stat events)
+        active_players_query = """
+        SELECT p.first_name, p.last_name, COUNT(se.event_id) AS stat_count
+        FROM Players p
+        JOIN StatEvent se ON p.player_id = se.performed_by
+        GROUP BY p.player_id, p.first_name, p.last_name
+        ORDER BY stat_count DESC
+        LIMIT 10
+        """
+        
+        cursor.execute(active_players_query)
+        active_players = cursor.fetchall()
+        
         cursor.close()
         
-        overall_stats = convert_datetime_for_json(overall_stats)
+        # Convert to JSON format
         popular_sports = convert_datetime_for_json(popular_sports)
         busiest_days = convert_datetime_for_json(busiest_days)
+        active_teams = convert_datetime_for_json(active_teams)
+        active_players = convert_datetime_for_json(active_players)
         
         result = {
-            "overall_statistics": overall_stats,
+            "overall_statistics": stats,
             "popular_sports": popular_sports,
-            "busiest_days": busiest_days
+            "busiest_days": busiest_days,
+            "active_teams": active_teams,
+            "active_players": active_players
         }
         
         return jsonify(result), 200

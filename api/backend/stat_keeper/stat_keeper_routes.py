@@ -251,12 +251,12 @@ def get_stat_keeper_games(keeper_id):
             # Return all games, no filtering
             query += " ORDER BY has_both_teams DESC, g.date_played DESC, g.start_time DESC"
         elif upcoming_only:
-            # Upcoming: future games (regardless of finalization status)
-            query += " AND g.date_played >= CURDATE()"
+            # Upcoming: games on or after today (use DATE() to ensure date-only comparison)
+            query += " AND DATE(g.date_played) >= DATE(CURDATE())"
             query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
         else:
-            # Past: past games (regardless of finalization status)
-            query += " AND g.date_played < CURDATE()"
+            # Past: games before today (use DATE() to ensure date-only comparison)
+            query += " AND DATE(g.date_played) < DATE(CURDATE())"
             query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
         
         cursor.execute(query, params)
@@ -363,14 +363,20 @@ def get_game_stat_events(game_id):
         
         query = """
         SELECT se.event_id, se.performed_by, se.description, se.time_entered,
-               p.first_name, p.last_name, p.player_id
+               p.first_name, p.last_name, p.player_id,
+               MIN(t.name) AS team_name, MIN(t.team_id) AS team_id
         FROM StatEvent se
         JOIN Players p ON se.performed_by = p.player_id
-        WHERE se.scored_during = %s
+        JOIN Teams_Players tp ON p.player_id = tp.player_id
+        JOIN Teams_Games tg ON tp.team_id = tg.team_id
+        JOIN Teams t ON tp.team_id = t.team_id
+        WHERE se.scored_during = %s AND tg.game_id = %s
+        GROUP BY se.event_id, se.performed_by, se.description, se.time_entered,
+                 p.first_name, p.last_name, p.player_id
         ORDER BY se.time_entered ASC
         """
         
-        cursor.execute(query, (game_id,))
+        cursor.execute(query, (game_id, game_id))
         stat_events = cursor.fetchall()
         cursor.close()
         

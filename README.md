@@ -1,5 +1,5 @@
 # IMLeagues Stat Tracker
-built by Lucas Chen, Timothy Matten, Aaron Zhou and Caleb Lys
+Built by Lucas Chen, Timothy Matten, Aaron Zhou and Caleb Lys
 
 This is the IMLeagues Stat Tracker project repository for tracking intramural sports statistics. 
 

@@ -10,7 +10,7 @@ st.set_page_config(layout='wide')
 st.title("Team Performance Comparison")
 st.write("Compare your team's performance to league averages, view home/away splits, and analyze performance against specific opponents.")
 
-TEAM_ID = 1
+TEAM_ID = st.session_state.get('team_id', 1)
 API_BASE = "http://web-api:4000/team-captain"
 
 try:

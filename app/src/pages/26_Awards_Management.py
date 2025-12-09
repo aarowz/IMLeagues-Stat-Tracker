@@ -144,11 +144,11 @@ with tab1:
 
 # ==================== LEAGUE CHAMPIONS TAB ====================
 with tab2:
-    st.subheader("Assign League Champions")
+    st.subheader("Display League Champions")
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.write("Record league champions at the end of each season.")
+        st.write("View and record league champions at the end of each season.")
     with col2:
         if st.button("🔄 Refresh", key="refresh_champions"):
             st.rerun()

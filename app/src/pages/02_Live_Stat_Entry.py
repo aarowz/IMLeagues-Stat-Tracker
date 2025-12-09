@@ -94,12 +94,15 @@ if not available_games:
         st.switch_page('pages/01_My_Assigned_Games.py')
     st.stop()
 
-# Check if we came from "My Assigned Games" with a selected game
+# Check if we came from "My Assigned Games" or Game Finalization with a selected game
 selected_game_id_from_state = st.session_state.get('selected_game_id')
 
 # Initialize the current game in session state if coming from another page
 if selected_game_id_from_state:
     st.session_state['current_stat_entry_game_id'] = selected_game_id_from_state
+    # Clear the widget state so it uses the index parameter instead
+    if 'stat_entry_game_selector' in st.session_state:
+        del st.session_state['stat_entry_game_selector']
     # Clear the navigation state
     del st.session_state['selected_game_id']
 
@@ -108,11 +111,13 @@ default_index = 0
 current_game_id = st.session_state.get('current_stat_entry_game_id')
 if current_game_id:
     for idx, g in enumerate(available_games):
-        if g['game_id'] == current_game_id:
+        # Ensure type consistency for comparison
+        if int(g['game_id']) == int(current_game_id):
             default_index = idx
             break
 
 # Game selector with pre-selection - use a key to maintain state
+# If we have a current_game_id, make sure it's selected
 selected_game_option = st.selectbox(
     "Select Game",
     options=available_games,
