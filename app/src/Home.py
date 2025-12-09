@@ -1,6 +1,6 @@
 ##################################################
 # This is the main/entry-point file for the 
-# IMLeagues Stat Tracker application
+# IMLeagues Stat Tracker application!
 ##################################################
 
 # Set up basic logging infrastructure
@@ -30,7 +30,7 @@ st.session_state['authenticated'] = False
 SideBarLinks(show_home=True)
 
 # ***************************************************
-#    The major content of this page
+#    The major content of this page ... for now.
 # ***************************************************
 
 # set the title of the page and provide a simple prompt. 

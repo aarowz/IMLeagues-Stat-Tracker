@@ -1,19 +1,40 @@
-# `database-files` Folder
+# Database Files Directory
 
-The MySQL server that is running in the db container is set up so that when the container is *created*, any `.sql` files in the `database-files` folder are automatically run.  Loosely speaking, the `.sql` files are run in "alphabetical" order.  So if your database schema is broken into a few files, it is easiest to rename them with a number at the beginning so they'll be run in the correct order.  So, something like `01_db.sql`, `02_db.sql` and so on. 
+The MySQL server running in the database container is configured to automatically execute all `.sql` files in this directory when the container is first created.
 
-If you make changes to any of the files in the `database-files/` folder AFTER the db container is started, you'll have to delete the container and re-create it for the SQL files to be re-executed.  **Note:** simply stopping and re-starting the db container will not re-run the files. 
+## File Execution Order
 
-If you are in your sandbox repo, do the following:
+SQL files are executed in alphabetical order. Files are numbered with prefixes (e.g., `01_`, `02_`, etc.) to ensure proper execution sequence:
 
+1. `01_imleagues_schema.sql` - Database schema (DDL) - Creates all tables
+2. `02_imleagues_data.sql` through `16_player_awards.sql` - Sample data (DML) - Populates tables with initial data
+
+## Important Notes
+
+- SQL files are only executed when the database container is first created
+- Simply stopping and restarting the container will NOT re-run the SQL files
+- If you make changes to any SQL files after the container is created, you must delete and recreate the container
+
+## Recreating the Database
+
+To recreate the database container with updated SQL files:
+
+### Team Repository
 ```bash
-docker compose -f sandbox.yaml down db -v && docker compose -f sandbox.yaml up db
+docker compose down db -v
+docker compose up db -d
 ```
 
-If you are working with your team repository, do the following
-
+### Sandbox Repository
 ```bash
-docker compose down db -v && docker compose up db
+docker compose -f sandbox.yaml down db -v
+docker compose -f sandbox.yaml up db -d
 ```
 
-The `-v` flag will also delete the volume associated with MySQL, which is necessary to rerun the sql files. 
+The `-v` flag removes the volume associated with MySQL, which is necessary to rerun the SQL files.
+
+## File Structure
+
+- Schema files define the database structure (tables, relationships, constraints)
+- Data files contain INSERT statements to populate tables with sample data
+- Files are organized sequentially to ensure proper dependencies are met

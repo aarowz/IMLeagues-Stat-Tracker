@@ -62,7 +62,7 @@ def TeamStatsDashboardNav():
     st.sidebar.page_link("pages/19_Team_Stats_Dashboard.py", label="Team Stats Dashboard", icon="📊")
 
 def TeamPerformanceComparisonNav():
-    st.sidebar.page_link("pages/20_Team_Performance_Comparison.py", label="Team Performance Comparison", icon="📈")
+    st.sidebar.page_link("pages/16_Team_Performance_Comparison.py", label="Team Performance Comparison", icon="📈")
 
 
 #### ------------------------ System Admin Role ------------------------

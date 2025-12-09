@@ -1,5 +1,6 @@
 USE im_league_tracker; 
--- Champions for leagues 1-20 only (leagues 21-25 have no champion yet)
+-- Champions for leagues 1-32 with historical data across multiple years
+-- Total: 48 entries in this file + 2 from 02_imleagues_data.sql = 50 total champions
 insert into Champions (winner, league_id, year) values (12, 1, 2025);
 insert into Champions (winner, league_id, year) values (8, 2, 2025);
 insert into Champions (winner, league_id, year) values (15, 3, 2025);
@@ -27,3 +28,25 @@ insert into Champions (winner, league_id, year) values (61, 24, 2025);
 insert into Champions (winner, league_id, year) values (18, 25, 2025);
 insert into Champions (winner, league_id, year) values (29, 26, 2024);
 insert into Champions (winner, league_id, year) values (35, 27, 2024);
+insert into Champions (winner, league_id, year) values (41, 28, 2024);
+insert into Champions (winner, league_id, year) values (22, 29, 2024);
+insert into Champions (winner, league_id, year) values (58, 30, 2024);
+insert into Champions (winner, league_id, year) values (36, 31, 2024);
+insert into Champions (winner, league_id, year) values (44, 32, 2024);
+-- Historical champions for previous years (2024)
+insert into Champions (winner, league_id, year) values (5, 1, 2024);
+insert into Champions (winner, league_id, year) values (12, 2, 2024);
+insert into Champions (winner, league_id, year) values (19, 3, 2024);
+insert into Champions (winner, league_id, year) values (7, 4, 2024);
+insert into Champions (winner, league_id, year) values (23, 5, 2024);
+insert into Champions (winner, league_id, year) values (15, 6, 2024);
+insert into Champions (winner, league_id, year) values (31, 7, 2024);
+insert into Champions (winner, league_id, year) values (45, 8, 2024);
+insert into Champions (winner, league_id, year) values (14, 9, 2024);
+insert into Champions (winner, league_id, year) values (52, 10, 2024);
+insert into Champions (winner, league_id, year) values (28, 11, 2024);
+insert into Champions (winner, league_id, year) values (67, 12, 2024);
+insert into Champions (winner, league_id, year) values (9, 13, 2024);
+insert into Champions (winner, league_id, year) values (38, 14, 2024);
+insert into Champions (winner, league_id, year) values (56, 15, 2024);
+insert into Champions (winner, league_id, year) values (21, 16, 2024);

@@ -23,5 +23,5 @@ if st.button('Team Stats Dashboard',
 if st.button('Team Performance Comparison', 
              type='primary',
              use_container_width=True):
-    st.switch_page('pages/20_Team_Performance_Comparison.py')
+    st.switch_page('pages/16_Team_Performance_Comparison.py')
 

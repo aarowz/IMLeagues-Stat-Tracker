@@ -967,7 +967,6 @@ insert into Players (first_name, last_name, email) values ('Lea', 'Craggs', 'cra
 insert into Players (first_name, last_name, email) values ('Lida', 'Delos', 'delos.l@northeastern.edu');
 insert into Players (first_name, last_name, email) values ('Killie', 'Lenden', 'lenden.k@northeastern.edu');
 insert into Players (first_name, last_name, email) values ('Mala', 'Rubin', 'rubin.m@northeastern.edu');
-insert into Players (first_name, last_name, email) values ('Wayne', 'A''Barrow', 'wabarrowqw@squidoo.com');
 insert into Players (first_name, last_name, email) values ('Felita', 'Cavanagh', 'cavanagh.f@northeastern.edu');
 insert into Players (first_name, last_name, email) values ('Myrwyn', 'Tabbitt', 'tabbitt.m@northeastern.edu');
 insert into Players (first_name, last_name, email) values ('Bidget', 'Thornton-Dewhirst', 'thorntondewhirst.b@northeastern.edu');

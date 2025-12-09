@@ -17,7 +17,7 @@ API_BASE = "http://web-api:4000/system-admin"
 # Create tabs for different functionalities
 tab1, tab2 = st.tabs(["📊 Analytics Dashboard", "⚙️ League Rules"])
 
-# ==================== ANALYTICS DASHBOARD TAB ====================
+# Da Analytics Dashboard
 with tab1:
     st.subheader("System Usage Analytics")
     
@@ -65,7 +65,7 @@ with tab1:
             popular_sports = analytics_data.get('popular_sports', [])
             
             if popular_sports:
-                # Create bar chart
+                # Create bar chart here
                 sports_df = pd.DataFrame(popular_sports)
                 fig_sports = px.bar(
                     sports_df,
@@ -79,7 +79,7 @@ with tab1:
                 fig_sports.update_layout(showlegend=False)
                 st.plotly_chart(fig_sports, use_container_width=True)
                 
-                # Display table
+                # Display table here
                 st.write("**Detailed Sport Statistics:**")
                 display_df = sports_df[['sport_name', 'league_count', 'team_count', 'game_count']]
                 display_df.columns = ['Sport', 'Leagues', 'Teams', 'Games']
@@ -94,7 +94,7 @@ with tab1:
             busiest_days = analytics_data.get('busiest_days', [])
             
             if busiest_days:
-                # Create bar chart
+                # Create bar chart here
                 days_df = pd.DataFrame(busiest_days)
                 days_df['game_date'] = pd.to_datetime(days_df['game_date'])
                 days_df = days_df.sort_values('game_date')
@@ -111,7 +111,7 @@ with tab1:
                 fig_days.update_layout(showlegend=False, xaxis_title="Date", yaxis_title="Number of Games")
                 st.plotly_chart(fig_days, use_container_width=True)
                 
-                # Display table
+                # Display table here
                 st.write("**Top 10 Busiest Days:**")
                 display_days_df = days_df[['game_date', 'game_count']]
                 display_days_df.columns = ['Date', 'Games']
@@ -178,7 +178,7 @@ with tab1:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== LEAGUE RULES TAB ====================
+# Da Leagues Rules Tab
 with tab2:
     st.subheader("Configure League Rules")
     

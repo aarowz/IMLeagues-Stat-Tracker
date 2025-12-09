@@ -7,14 +7,6 @@ CREATE DATABASE IF NOT EXISTS im_league_tracker;
 USE im_league_tracker;
 
 -- ============================================================
--- WARNING: DROP TABLE statements have been removed to prevent
--- accidental data loss. These scripts only run when the MySQL
--- container is first created with an empty data directory.
--- If you need to reset the database, manually drop tables or
--- recreate the container with: docker compose down db -v && docker compose up db
--- ============================================================
-
--- ============================================================
 -- STRONG ENTITIES
 -- ============================================================
 
@@ -95,6 +87,7 @@ CREATE TABLE IF NOT EXISTS Games (
     location VARCHAR(100),
     home_score INT DEFAULT 0,
     away_score INT DEFAULT 0,
+    is_finalized BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (league_played) REFERENCES Leagues(league_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE

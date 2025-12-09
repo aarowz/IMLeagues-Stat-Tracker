@@ -204,13 +204,38 @@ def get_stat_keeper_games(keeper_id):
             cursor.close()
             return jsonify({"error": "Stat keeper not found"}), 404
         
+        # Check if is_finalized column exists
+        cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'Games' 
+            AND COLUMN_NAME = 'is_finalized'
+        """)
+        result = cursor.fetchone()
+        has_finalized_column = False
+        if result:
+            # Handle both tuple and dict cursor types
+            count = result[0] if isinstance(result, tuple) else result.get('COUNT(*)', 0)
+            has_finalized_column = count > 0
+        
         # Get parameters from query string
         upcoming_only = request.args.get("upcoming_only", "false").lower() == "true"
         all_games = request.args.get("all", "false").lower() == "true"
         
-        query = """
+        # Build query with or without is_finalized column
+        if has_finalized_column:
+            finalized_select = "COALESCE(g.is_finalized, FALSE) AS is_finalized,"
+            finalized_filter_upcoming = "AND COALESCE(g.is_finalized, FALSE) = FALSE"
+            finalized_filter_past = "OR COALESCE(g.is_finalized, FALSE) = TRUE"
+        else:
+            finalized_select = "FALSE AS is_finalized,"
+            finalized_filter_upcoming = ""
+            finalized_filter_past = ""
+        
+        query = f"""
         SELECT g.game_id, g.date_played, g.start_time, g.location,
                g.home_score, g.away_score, g.league_played,
+               {finalized_select}
                (SELECT t.name FROM Teams_Games tg 
                 JOIN Teams t ON tg.team_id = t.team_id 
                 WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
@@ -229,14 +254,12 @@ def get_stat_keeper_games(keeper_id):
                 LIMIT 1) AS away_team_id,
                l.name AS league_name, s.name AS sport_name,
                gk.assignment_date,
-               CASE 
-                   WHEN (SELECT t.team_id FROM Teams_Games tg 
-                         JOIN Teams t ON tg.team_id = t.team_id 
-                         WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE LIMIT 1) IS NOT NULL
-                   AND (SELECT t.team_id FROM Teams_Games tg 
-                        JOIN Teams t ON tg.team_id = t.team_id 
-                        WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE LIMIT 1) IS NOT NULL
-                   THEN 1 ELSE 0 END AS has_both_teams
+               (EXISTS(SELECT 1 FROM Teams_Games tg 
+                       JOIN Teams t ON tg.team_id = t.team_id 
+                       WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE)
+                AND EXISTS(SELECT 1 FROM Teams_Games tg 
+                          JOIN Teams t ON tg.team_id = t.team_id 
+                          WHERE tg.game_id = g.game_id AND tg.is_home_team = FALSE)) AS has_both_teams
         FROM Games_Keepers gk
         JOIN Games g ON gk.game_id = g.game_id
         JOIN Leagues l ON g.league_played = l.league_id
@@ -251,12 +274,18 @@ def get_stat_keeper_games(keeper_id):
             # Return all games, no filtering
             query += " ORDER BY has_both_teams DESC, g.date_played DESC, g.start_time DESC"
         elif upcoming_only:
-            # Upcoming: games on or after today (use DATE() to ensure date-only comparison)
+            # Upcoming: games on or after today that are NOT finalized
+            # Finalized games should appear in past games, not upcoming
             query += " AND DATE(g.date_played) >= DATE(CURDATE())"
+            if finalized_filter_upcoming:
+                query += f" {finalized_filter_upcoming}"
             query += " ORDER BY g.date_played ASC, g.start_time ASC"  # Soonest games first
         else:
-            # Past: games before today (use DATE() to ensure date-only comparison)
-            query += " AND DATE(g.date_played) < DATE(CURDATE())"
+            # Past: games before today OR finalized games (regardless of date)
+            if finalized_filter_past:
+                query += f" AND (DATE(g.date_played) < DATE(CURDATE()) {finalized_filter_past})"
+            else:
+                query += " AND DATE(g.date_played) < DATE(CURDATE())"
             query += " ORDER BY g.date_played DESC, g.start_time DESC"  # Most recent games first
         
         cursor.execute(query, params)
@@ -275,9 +304,26 @@ def get_game(game_id):
     try:
         cursor = db.get_db().cursor()
         
-        query = """
+        # Check if is_finalized column exists
+        cursor.execute("""
+            SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'Games' 
+            AND COLUMN_NAME = 'is_finalized'
+        """)
+        result = cursor.fetchone()
+        has_finalized_column = False
+        if result:
+            # Handle both tuple and dict cursor types
+            count = result[0] if isinstance(result, tuple) else result.get('COUNT(*)', 0)
+            has_finalized_column = count > 0
+        
+        finalized_select = "COALESCE(g.is_finalized, FALSE) AS is_finalized," if has_finalized_column else "FALSE AS is_finalized,"
+        
+        query = f"""
         SELECT g.game_id, g.date_played, g.start_time, g.location, 
                g.home_score, g.away_score, g.league_played,
+               {finalized_select}
                (SELECT t.name FROM Teams_Games tg 
                 JOIN Teams t ON tg.team_id = t.team_id 
                 WHERE tg.game_id = g.game_id AND tg.is_home_team = TRUE 
@@ -460,8 +506,8 @@ def get_game_summary(game_id):
         # Get total stat events per team
         team_totals_query = """
         SELECT 
-            COUNT(CASE WHEN tp.team_id = %s THEN se.event_id END) AS home_team_stat_count,
-            COUNT(CASE WHEN tp.team_id = %s THEN se.event_id END) AS away_team_stat_count
+            SUM(tp.team_id = %s) AS home_team_stat_count,
+            SUM(tp.team_id = %s) AS away_team_stat_count
         FROM StatEvent se
         JOIN Players p ON se.performed_by = p.player_id
         JOIN Teams_Players tp ON p.player_id = tp.player_id
@@ -608,10 +654,17 @@ def update_game(game_id):
             cursor.close()
             return jsonify({"error": "Game not found"}), 404
         
-        old_home_score = game_data.get('home_score')
-        old_away_score = game_data.get('away_score')
-        home_team_id = game_data.get('home_team_id')
-        away_team_id = game_data.get('away_team_id')
+        # Handle both tuple and dict cursor types
+        if isinstance(game_data, tuple):
+            old_home_score = game_data[0] if len(game_data) > 0 else None
+            old_away_score = game_data[1] if len(game_data) > 1 else None
+            home_team_id = game_data[2] if len(game_data) > 2 else None
+            away_team_id = game_data[3] if len(game_data) > 3 else None
+        else:
+            old_home_score = game_data.get('home_score')
+            old_away_score = game_data.get('away_score')
+            home_team_id = game_data.get('home_team_id')
+            away_team_id = game_data.get('away_team_id')
         
         # Build update query dynamically based on provided fields
         update_fields = []
@@ -636,6 +689,33 @@ def update_game(game_id):
         if "location" in data:
             update_fields.append("location = %s")
             params.append(data["location"])
+        
+        # Handle finalization flag - if is_finalized is True, mark game as finalized
+        # First check if column exists
+        if "is_finalized" in data:
+            cursor.execute("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'Games' 
+                AND COLUMN_NAME = 'is_finalized'
+            """)
+            result = cursor.fetchone()
+            has_finalized_column = False
+            if result:
+                count = result[0] if isinstance(result, tuple) else result.get('COUNT(*)', 0)
+                has_finalized_column = count > 0
+            
+            if has_finalized_column:
+                update_fields.append("is_finalized = %s")
+                params.append(data["is_finalized"])
+            # If column doesn't exist, silently skip (column will be added when DB is recreated)
+        # If scores are being set and not explicitly setting is_finalized, check if we should auto-finalize
+        elif "home_score" in data and "away_score" in data:
+            # If both scores are provided and non-zero, this is likely a finalization
+            if data.get("home_score") is not None and data.get("away_score") is not None:
+                # Check if this is coming from the finalize button (we'll set is_finalized in frontend)
+                # For now, don't auto-finalize - let frontend explicitly set it
+                pass
         
         if not update_fields:
             cursor.close()

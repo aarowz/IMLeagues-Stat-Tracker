@@ -15,7 +15,7 @@ API_BASE = "http://web-api:4000/system-admin"
 # Create tabs for different entity types
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🏀 Sports", "🏆 Leagues", "👥 Teams", "🏃 Players", "🎮 Games", "📊 Stat Keepers"])
 
-# ==================== SPORTS TAB ====================
+# Sports
 with tab1:
     st.subheader("Sports Management")
     
@@ -125,7 +125,7 @@ with tab1:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== LEAGUES TAB ====================
+# Leagues
 with tab2:
     st.subheader("Leagues Management")
     
@@ -325,7 +325,7 @@ with tab2:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== TEAMS TAB ====================
+# Teams
 with tab3:
     st.subheader("Teams Management")
     
@@ -494,7 +494,7 @@ with tab3:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== PLAYERS TAB ====================
+# Players
 with tab4:
     st.subheader("Players Management")
     
@@ -717,7 +717,7 @@ with tab4:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== GAMES TAB ====================
+# Games
 with tab5:
     st.subheader("Games Management")
     
@@ -984,7 +984,7 @@ with tab5:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== STAT KEEPERS TAB ====================
+# Stat Keepers
 with tab6:
     st.subheader("Stat Keepers Management")
     

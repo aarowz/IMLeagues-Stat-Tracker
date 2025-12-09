@@ -1,10 +1,10 @@
-# `static` Directory
+# Static Directory
 
 This directory contains static assets for the Streamlit application, including images, icons, and other media files.
 
 ## Contents
 
-- **logo.png** - Application logo used in the sidebar navigation
+- `logo.png` - Application logo used in the sidebar navigation
 
 ## Usage
 

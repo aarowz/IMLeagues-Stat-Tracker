@@ -22,16 +22,32 @@ try:
     past_response = requests.get(f"{API_BASE}/stat-keepers/{STAT_KEEPER_ID}/games?upcoming_only=false")
     
     if upcoming_response.status_code == 200:
-        upcoming_games = upcoming_response.json()
+        try:
+            upcoming_games = upcoming_response.json()
+        except ValueError:
+            upcoming_games = []
+            st.error(f"Error parsing upcoming games response. Status: {upcoming_response.status_code}")
     else:
         upcoming_games = []
-        st.error(f"Error fetching upcoming games: {upcoming_response.json().get('error', 'Unknown error')}")
+        try:
+            error_msg = upcoming_response.json().get('error', f'HTTP {upcoming_response.status_code}')
+        except ValueError:
+            error_msg = f'HTTP {upcoming_response.status_code}: {upcoming_response.text[:200]}'
+        st.error(f"Error fetching upcoming games: {error_msg}")
     
     if past_response.status_code == 200:
-        past_games = past_response.json()
+        try:
+            past_games = past_response.json()
+        except ValueError:
+            past_games = []
+            st.error(f"Error parsing past games response. Status: {past_response.status_code}")
     else:
         past_games = []
-        st.error(f"Error fetching past games: {past_response.json().get('error', 'Unknown error')}")
+        try:
+            error_msg = past_response.json().get('error', f'HTTP {past_response.status_code}')
+        except ValueError:
+            error_msg = f'HTTP {past_response.status_code}: {past_response.text[:200]}'
+        st.error(f"Error fetching past games: {error_msg}")
 except Exception as e:
     st.error(f"Error: {str(e)}")
     upcoming_games = []

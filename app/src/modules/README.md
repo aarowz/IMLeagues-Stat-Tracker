@@ -1,3 +1,15 @@
-# `modules` Folder
+# Modules Directory
 
-Currently, we are using this folder to hold functionality that needs to be accessible to the entire application. `nav.py` is a module that supports our custom navigation bar on the left of the app along with some basic Role-Based Access Control (RBAC). 
+This folder contains functionality that needs to be accessible to the entire Streamlit application.
+
+## Files
+
+- `nav.py` - Custom navigation bar module that supports:
+  - Sidebar navigation with role-based menu items
+  - Role-Based Access Control (RBAC) functionality
+  - User session state management
+  - Navigation between pages based on user role
+
+## Usage
+
+The `nav.py` module is imported and called at the beginning of each page to ensure consistent navigation and access control across the application.

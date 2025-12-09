@@ -34,16 +34,13 @@ def show_success_fade(message, duration=5):
     """Display a success message that fades out smoothly after the specified duration."""
     # Display the message - CSS will handle the smooth fade-out animation
     st.success(message)
-    
-    # Wait for fade-out to complete (CSS handles the visual fade smoothly)
-    # The CSS animation starts after 4.5s and takes 0.5s, so total is 5s
     time.sleep(duration + 0.5)  # Wait for animation to complete
     st.rerun()  # Refresh to remove the faded message
 
 # Create tabs for different award types
 tab1, tab2, tab3 = st.tabs(["👤 Player Awards", "🏅 League Champions", "📋 View All Awards"])
 
-# ==================== PLAYER AWARDS TAB ====================
+# Playa Awards
 with tab1:
     st.subheader("Assign Awards to Players")
     
@@ -142,7 +139,7 @@ with tab1:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== LEAGUE CHAMPIONS TAB ====================
+# League CHAMPS
 with tab2:
     st.subheader("Display League Champions")
     
@@ -256,7 +253,7 @@ with tab2:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== VIEW ALL AWARDS TAB ====================
+# All Awards Tab
 with tab3:
     st.subheader("View All Awards and Champions")
     

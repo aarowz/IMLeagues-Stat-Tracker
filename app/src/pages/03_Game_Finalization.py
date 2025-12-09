@@ -320,7 +320,8 @@ with col_finalize:
         try:
             final_data = {
                 "home_score": new_home_score if 'new_home_score' in locals() else current_home_score,
-                "away_score": new_away_score if 'new_away_score' in locals() else current_away_score
+                "away_score": new_away_score if 'new_away_score' in locals() else current_away_score,
+                "is_finalized": True  # Mark game as finalized
             }
             response = requests.put(f"{API_BASE}/games/{game_id}", json=final_data)
             if response.status_code == 200:
@@ -329,7 +330,11 @@ with col_finalize:
                 st.session_state[celebration_key] = True
                 st.rerun()  # Rerun to show celebration without duplicate buttons
             else:
-                st.error(f"Error finalizing game: {response.json().get('error', 'Unknown error')}")
+                try:
+                    error_msg = response.json().get('error', f'HTTP {response.status_code}')
+                except ValueError:
+                    error_msg = f'HTTP {response.status_code}: {response.text[:200]}'
+                st.error(f"Error finalizing game: {error_msg}")
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
