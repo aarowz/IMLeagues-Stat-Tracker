@@ -1,6 +1,6 @@
 # IMLeagues Stat Tracker
 
-Built by Ahaan Kallat, Lucas Chen, Timothy Matten, Aaron Zhou, and Caleb Lys
+Built by Aaron Zhou, Ahaan Kallat, Lucas Chen, Timothy Matten, and Caleb Lys
 
 This is the IMLeagues Stat Tracker project repository for tracking intramural sports statistics. The application provides comprehensive stat tracking, game management, and analytics for intramural sports leagues.
 
