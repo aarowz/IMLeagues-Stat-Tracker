@@ -125,18 +125,47 @@ docker compose down -v
 
 - Frontend (Streamlit): `http://localhost:8501`
 - Backend API: `http://localhost:4000`
-- MySQL Database: `localhost:3200` (external) / `db:3306` (internal)
+- MySQL Database: `localhost:3200` (external port) / `db:3306` (internal container port)
+  - **Note**: MySQL is a database server, not an HTTP server. Connect using MySQL client tools (e.g., `mysql -h localhost -P 3200 -u root -p`), not via web browser
 
 ## API Overview
 
-The REST API is organized into 4 Flask Blueprints, each corresponding to a user persona:
+The REST API is organized into 4 Flask Blueprints, each corresponding to a user persona. **All API endpoints are prefixed with their respective blueprint path.**
+
+### Blueprint Structure
 
 - **Stat Keeper** (`/stat-keeper`) - Game assignment, live stat entry, game finalization
 - **Player** (`/player`) - Personal stats, game schedules, team/league exploration
 - **Team Captain** (`/team-captain`) - Team management, game scheduling, performance tracking
 - **System Administrator** (`/system-admin`) - System-wide analytics, data management, awards
 
-The API uses standard HTTP methods (GET, POST, PUT, DELETE) and returns JSON responses.
+### Endpoint Examples
+
+All endpoints include the blueprint prefix. For example:
+
+- `GET /player/players` - Get all players
+- `GET /team-captain/teams/<team_id>/games` - Get games for a team
+- `GET /stat-keeper/games/<game_id>` - Get game details
+- `POST /stat-keeper/games/<game_id>/stat-events` - Create a stat event
+- `PUT /team-captain/games` - Update game information
+- `DELETE /stat-keeper/games/<game_id>/stat-events/<event_id>` - Delete a stat event
+
+### API Details
+
+- **Base URL**: `http://localhost:4000` (when running via Docker)
+- **Response Format**: All endpoints return JSON
+- **HTTP Methods**: GET, POST, PUT, DELETE
+- **Testing**: Use tools like `curl`, Postman, or your browser to test GET endpoints
+
+### Example Request
+
+```bash
+# Get all players
+curl http://localhost:4000/player/players
+
+# Get games for team ID 1
+curl http://localhost:4000/team-captain/teams/1/games
+```
 
 ## Pages Organization
 
